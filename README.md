@@ -37,7 +37,7 @@ The platform connects 4 primary operational roles to enable real-time tracking, 
 ## 🔗 Interactive Prototype
 
 Check out the interactive Figma prototype mapping the complete end-to-end workflow:
-👉 **[Figma Interactive Prototype Link](ADD_YOUR_FIGMA_PROTOTYPE_LINK_HERE)**
+👉 **[Figma Interactive Prototype Link](https://www.figma.com/proto/4S3KEnumXY14PeFgHe3G2y/Untitled?node-id=1-2&t=qWeHN4npVP0y1fBK-1&scaling=scale-down&content-scaling=fixed&page-id=0%3A1)**
 
 ---
 
