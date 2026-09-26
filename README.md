@@ -1,6 +1,6 @@
 # CodePulse-TechTriathlon2026
 
-Official repository for **\[Solution Name\]**, developed by **\[Team Name\]** for the **Tech-Triathlon** competition (by Rootcode).
+Official repository for **\[Solution Name\]**, developed by **CodePulse** for the **Tech-Triathlon** competition (by Rootcode).
 
 ---
 
