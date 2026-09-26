@@ -1,153 +1,128 @@
-# CodePulse-TechTriathlon2026
-Integrated logistics ecosystem for Waypoint Group built for Rootcode Tech-Triathlon 2026. Features fleet allocation, cutoff management, LIFO dock loading, and offline-first driver navigation.
+# \[CodePulse\]\_\[SolutionName\]
 
-## 🌐 Live System & Seeded Credentials
+Official repository for **\[Solution Name\]**, developed by **\[Team Name\]** for the **Tech-Triathlon** competition (by Rootcode).
 
-- **Live Application URL:** [https://your-deployed-app-url.com](https://your-deployed-app-url.com)
-- **API Documentation / Health Check:** [https://your-deployed-app-url.com/api/docs](https://your-deployed-app-url.com/api/docs)
+---
 
-### Seeded Test Accounts
+## 🚀 Live System & Access
 
-Below are pre-configured test credentials for each user role in the system:
+* **Deployed System URL:** [https://your-deployed-app-url.com](https://your-deployed-app-url.com?utm_source=gemini)
+* **API Documentation / Health Check:** [https://your-deployed-app-url.com/api/docs](https://your-deployed-app-url.com/api/docs?utm_source=gemini)
 
-| Role | Email / Username | Password | Purpose / Key Capabilities |
+### Seeded Credentials (End-to-End Testing)
+
+The system is fully seeded with test accounts representing every defined user role to enable judges to run complete end-to-end cycles:
+
+| User Role | Email / Username | Password | Flow / Scope to Test |
 | :--- | :--- | :--- | :--- |
-| **Admin** | `admin@example.com` | `AdminPass123!` | Full system control, user management, and global settings |
-| **Manager** | `manager@example.com` | `ManagerPass123!` | Management level access, report viewing, team assignment |
-| **Standard User** | `user@example.com` | `UserPass123!` | Regular user workflow, profile creation, and core feature access |
+| **Admin** | `admin@example.com` | `AdminPass123!` | System configuration, monitoring, full dataset access |
+| **User Role 1** | `user1@example.com` | `User1Pass123!` | Core user workflow, input generation, prediction requests |
+| **User Role 2** | `user2@example.com` | `User2Pass123!` | Secondary user flow / review / approval management |
 
 ---
 
-## 🏗️ System Architecture & Data Model
+## 📐 Architecture Diagrams & Data Model
 
-### Architecture Diagram
+### 1. System Architecture
 
 ```
-[ Frontend (React/Next.js) ] <---> [ REST/GraphQL API Gateway ]
-                                                |
-                                                v
-                                   [ Backend Services (Node/Python/Go) ]
-                                                |
-                                                v
-                                    [ Database (PostgreSQL/MongoDB) ]
+                                +---------------------------+
+                                |  Responsive Web App (UI)  |
+                                |  (Mobile & Desktop View)  |
+                                +-------------+-------------+
+                                              |
+                                              v
+                                +-------------+-------------+
+                                |   REST / GraphQL API      |
+                                |   (Backend Gateway)       |
+                                +-------------+-------------+
+                                              |
+                                +-------------+-------------+
+                                |                           |
+                                v                           v
+                 +--------------+--------------+  +---------+--------+
+                 |    Inference / ML Pipeline  |  |   Database     |
+                 | (.h5 / .pkl Model Artifact) |  | (Seeded Data)  |
+                 +-----------------------------+  +------------------+
 ```
 
-#### System Components
-- **Frontend App:** Serves the client user interface built with modern web frameworks.
-- **Backend Service:** Manages authentication, business logic, and API endpoints.
-- **Database:** Stores relational data with automatic migrations and seed data on initialization.
+### 2. Machine Learning & Preprocessing Pipeline
+* **Data Sources & Intake:** Overview of raw data inputs.
+* **Feature Engineering & Transformation:** Preprocessing methods applied prior to model inference.
+* **Model Inference Engine:** How predictions are generated and passed to the end-to-end web system.
 
 ---
 
-### Data Model Overview
+## 📊 Data Preprocessing & Modeling Approach
 
-The database schema is structured around the following core entities:
+For a comprehensive breakdown of the data analysis, rationale, and feature processing, see our [Data Pre-Processing Document](./docs/data_preprocessing.md).
 
-- **Users:** Stores user profiles, authentication metadata, and role attributes (`ADMIN`, `MANAGER`, `USER`).
-- **Resources / Entities:** Main business objects managed by the system.
-- **Audit Logs / Transactions:** Records user actions and system changes for security and tracking.
+### Core Summary:
+* **Data Wrangling:** Handled missing values, outliers, scaling, and categorical encodings.
+* **Experimentation:** Explored multiple model families in evaluation notebooks before settling on the optimal architecture.
+* **Final Model Artifact:** Stored under `models/TeamName_Model.pkl` (or `.h5`).
 
-*(Replace with your detailed ERD or database schema description)*
+### Notebooks Matrix
+All experimentation notebooks can be found in the `/notebooks` folder:
+* `TeamName_FinalNotebook.ipynb` ⭐ **(Primary Submission Notebook)**
+* `01_Data_Exploration.ipynb`
+* `02_Feature_Engineering.ipynb`
 
 ---
 
-## 🐳 Quick Start with Docker Compose
+## 🐳 Local Setup via Docker Compose
 
-You can spin up the entire application stack locally using Docker Compose from the root directory.
+Run the entire end-to-end stack locally, including database initialization and model serving.
 
 ### Prerequisites
-- [Docker](https://www.docker.com/get-started) (v20.10 or higher)
-- [Docker Compose](https://docs.docker.com/compose/) (v2.0 or higher)
-- [Git](https://git-scm.com/)
+* [Docker](https://www.docker.com/get-started?utm_source=gemini) (v20.10+)
+* [Docker Compose](https://docs.docker.com/compose/?utm_source=gemini) (v2.0+)
 
-### Setup Instructions
+### Commands
 
-1. **Clone the Repository:**
-   ```bash
-   git clone https://github.com/YourOrg/TeamName_SolutionName.git
-   cd TeamName_SolutionName
-   ```
+```bash
+# 1. Clone repository
+git clone https://github.com/YourOrg/TeamName_SolutionName.git
+cd TeamName_SolutionName
 
-2. **Set Up Environment Variables:**
-   Copy the example environment file to create your local environment file:
-   ```bash
-   cp .env.example .env
-   ```
-   *(Optionally inspect `.env` to modify default ports or secret keys if necessary)*
+# 2. Configure environment
+cp .env.example .env
 
-3. **Run the Application Stack:**
-   ```bash
-   docker compose up --build
-   ```
-   *This command builds the services, starts the database, executes migrations, and seeds default test data.*
+# 3. Launch stack
+docker compose up --build
+```
 
-4. **Access the Local Services:**
-   - **Frontend App:** `http://localhost:3000`
-   - **Backend API:** `http://localhost:8000`
-   - **Database Port:** `localhost:5432`
-
-5. **Stop the Application Stack:**
-   ```bash
-   docker compose down -v
-   ```
+Access local endpoints:
+* **Web Client:** `http://localhost:3000`
+* **API Service:** `http://localhost:8000`
 
 ---
 
-## ⚙️ Configuration & Environment Variables
+## 🔀 Design & Technical Departures
 
-Key parameters defined in `.env.example`:
+In accordance with the competition rules, here are the documented departures made from our Day 5 design specifications during implementation:
 
-| Environment Variable | Description | Default Value |
-| :--- | :--- | :--- |
-| `NODE_ENV` | Application running environment | `development` |
-| `PORT` | Backend server port | `8000` |
-| `DATABASE_URL` | Database connection string | `postgres://user:pass@db:5432/appdb` |
-| `JWT_SECRET` | Secret key for auth tokens | `your-super-secret-key` |
+1. **Architecture / Pipeline Adjustment:** *[e.g., Replaced standard Random Forest with XGBoost for faster inference times]*
+2. **UI / Flow Modification:** *[e.g., Streamlined mobile view navigation for faster multi-role testing]*
+3. **Database / Storage Departure:** *[e.g., Added Redis caching layer for preprocessed feature vectors]*
 
 ---
 
-## 💡 Application Walkthrough & User Flows
+## 🎥 Video Walkthroughs
 
-1. **Authentication:** Log in using one of the pre-seeded account credentials above.
-2. **Dashboard Overview:** Experience tailored UI views based on the logged-in user role.
-3. **Core Features:**
-   - **Admin:** View system metrics, manage user roles, and inspect logs.
-   - **User:** Perform primary operations, create items, and generate reports.
-
----
-
-## 🔀 Design Departures
-
-During implementation, the following design and technical departures were made from the initial specification:
-
-1. **Database Selection:** Changed from SQLite to PostgreSQL for better concurrency handling in production containers.
-2. **Authentication Flow:** Switched to HTTP-only cookies instead of localStorage JWT tokens to enhance security.
-3. **UI Component Restructuring:** Combined certain step-by-step form wizards into a single-page reactive form to improve user experience.
-
----
-
-## 🎥 Demo Video
-
-Watch our 5–8 minute walkthrough video demonstrating all user roles, key functionality, and a brief walkthrough of the codebase and architecture:
-
-- 📺 **YouTube Video Link:** [https://www.youtube.com/watch?v=YOUR_VIDEO_ID](https://www.youtube.com/watch?v=YOUR_VIDEO_ID) *(Unlisted)*
+* 📺 **System & Code Walkthrough (5–8 mins):** [YouTube Link](https://www.youtube.com/watch?v=YOUR_VIDEO_ID) *(Unlisted)*  
+  *Demonstrates all user roles executing an end-to-end cycle, responsive design on mobile, and code/architecture walkthrough.*
+* 📺 **Model Architecture & Data Video (3–5 mins):** [YouTube Link](https://www.youtube.com/watch?v=YOUR_VIDEO_ID) *(Unlisted)*  
+  *Covers model architecture, preprocessing steps, and key technical challenges faced.*
 
 ---
 
 ## 🤖 AI Tool Disclosure
 
-In accordance with project guidelines, here is a transparent breakdown of how AI tools were utilized during development:
+We strictly adhere to the transparency requirements regarding AI tool usage:
 
-### What was AI-Assisted:
-- Initial boilerplate configuration and `.env.example` setup.
-- Generating mock seed datasets for database population.
-- Writing repetitive CSS styling utility classes and unit test stubs.
-
-### What was NOT AI-Assisted:
-- Core system architecture design and database schema decisions.
-- Critical business logic algorithms and role-based authorization security implementations.
-- Final code integration, debugging, deployment, and testing.
-
-### Tools & Methods Used:
-- **GitHub Copilot:** Used for code completion and syntax assistance during backend controller development.
-- **ChatGPT / Claude:** Used for brainstorming architecture patterns, drafting README documentation structure, and generating SQL seed script templates.
+| Category | Description | Tools Used |
+| :--- | :--- | :--- |
+| **AI-Assisted** | Boilerplate code generation, Docker configuration syntax, SQL seed scripts, and formatting markdown docs. | ChatGPT / GitHub Copilot |
+| **NOT AI-Assisted** | Data strategy, feature engineering decisions, custom ML pipeline logic, system architecture, and debugging. | Manual Engineering |
+| **Ownership** | All generated code was thoroughly reviewed, verified, tested, and fully understood by the team before submission. | Full Team Ownership |
