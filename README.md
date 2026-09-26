@@ -1,4 +1,4 @@
-# \[CodePulse\]\_\[SolutionName\]
+# \CodePulse\\_\[SolutionName\]
 
 Official repository for **\[Solution Name\]**, developed by **\[Team Name\]** for the **Tech-Triathlon** competition (by Rootcode).
 
