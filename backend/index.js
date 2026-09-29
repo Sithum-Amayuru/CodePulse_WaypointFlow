@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { parse } = require('csv-parse/sync');
 const Database = require('better-sqlite3');
+const { runAllocation } = require('./allocation');
 
 const app = express();
 const PORT = 3000;
@@ -14,7 +15,6 @@ app.use(express.json());
 // ---- Database Setup ----
 const db = new Database(path.join(__dirname, 'waypoint.db'));
 
-// Create tables if they don't exist
 db.exec(`
   CREATE TABLE IF NOT EXISTS stops (
     step INTEGER PRIMARY KEY,
@@ -34,7 +34,6 @@ db.exec(`
   )
 `);
 
-// Seed initial data only if tables are empty
 const stopCount = db.prepare('SELECT COUNT(*) as count FROM stops').get();
 if (stopCount.count === 0) {
   db.prepare(
@@ -51,7 +50,6 @@ if (stopCount.count === 0) {
   console.log('Database seeded with initial trip data.');
 }
 
-// Helper: get full trip object (mimics old in-memory shape)
 function getTrip() {
   const info = db.prepare('SELECT * FROM trip_info WHERE id = 1').get();
   const stops = db.prepare('SELECT * FROM stops ORDER BY step').all().map((s) => ({
@@ -68,7 +66,7 @@ function getTrip() {
 function readCSV(filename) {
   const filePath = path.join(__dirname, 'data', filename);
   const fileContent = fs.readFileSync(filePath, 'utf-8');
-  return parse(fileContent, { columns: true, skip_empty_lines: true });
+  return parse(fileContent, { columns: true, skip_empty_lines: true, bom: true });
 }
 
 // ---- Basic Routes ----
@@ -102,67 +100,37 @@ app.post('/api/trip/deliver/:step', (req, res) => {
 });
 
 // ---- Allocation Engine ----
+function computeAllocation() {
+  return runAllocation({
+    orders: readCSV('task2b_peak_day_scenarios.csv'),
+    fleet: readCSV('task2b_peak_day_fleet.csv'),
+    vehicles: readCSV('vehicles.csv'),
+    travel: readCSV('district_travel.csv'),
+    allowance: readCSV('service_allowance.csv'),
+  });
+}
 
-// Sample orders for testing the allocation engine
-const sampleOrders = [
-  { orderId: 'ORD-9021', destination: 'Kandy Outlet', weightKg: 1200, volumeM3: 3.5, tempRequirement: 'ambient', brand: 'Fresh', depot: 'Peliyagoda' },
-  { orderId: 'ORD-9022', destination: 'Galle Outlet', weightKg: 2400, volumeM3: 8.0, tempRequirement: 'chilled', brand: 'Fresh', depot: 'Peliyagoda' },
-  { orderId: 'ORD-9023', destination: 'Jaffna Outlet', weightKg: 1800, volumeM3: 5.0, tempRequirement: 'ambient', brand: 'Style', depot: 'Peliyagoda' },
-];
-
+// One row per order: served (vehicle + trip) or deferred (with reason)
 app.get('/api/allocate', (req, res) => {
-  const vehicles = readCSV('vehicles.csv');
-  const results = [];
-
-  // Track how much capacity each vehicle has already used up
-  const vehicleUsage = {}; // { vehicleId: { weightUsed, volumeUsed } }
-
-  for (const order of sampleOrders) {
-    // Find an eligible vehicle: matches depot, has REMAINING capacity, has correct temp capability
-    const eligibleVehicle = vehicles.find((v) => {
-      const depotMatch = v.depot === order.depot;
-      const tempOk = order.tempRequirement === 'chilled' ? v.temp === 'reefer' : true;
-
-      const used = vehicleUsage[v.vehicle_id] || { weightUsed: 0, volumeUsed: 0 };
-      const weightOk = Number(v.weight_cap_kg) - used.weightUsed >= order.weightKg;
-      const volumeOk = Number(v.volume_cap_m3) - used.volumeUsed >= order.volumeM3;
-
-      return depotMatch && tempOk && weightOk && volumeOk;
-    });
-
-    if (eligibleVehicle) {
-      // Record this order's weight/volume against the vehicle so future orders see reduced capacity
-      const used = vehicleUsage[eligibleVehicle.vehicle_id] || { weightUsed: 0, volumeUsed: 0 };
-      vehicleUsage[eligibleVehicle.vehicle_id] = {
-        weightUsed: used.weightUsed + order.weightKg,
-        volumeUsed: used.volumeUsed + order.volumeM3,
-      };
-
-      results.push({
-        orderId: order.orderId,
-        destination: order.destination,
-        decision: 'served',
-        vehicleId: eligibleVehicle.vehicle_id,
-        reason: null,
-      });
-    } else {
-      let reason = 'No vehicle with sufficient remaining capacity';
-      if (order.tempRequirement === 'chilled') {
-        const anyReefer = vehicles.some((v) => v.depot === order.depot && v.temp === 'reefer');
-        if (!anyReefer) reason = 'No refrigerated vehicle available at this depot';
-      }
-      results.push({
-        orderId: order.orderId,
-        destination: order.destination,
-        decision: 'deferred',
-        vehicleId: null,
-        reason,
-      });
-    }
+  try {
+    res.json(computeAllocation().allocations);
+  } catch (err) {
+    console.error('Allocation error:', err.message);
+    res.status(500).json({ error: err.message });
   }
-
-  res.json(results);
 });
+
+// Summary numbers and the list of trips built by the engine
+app.get('/api/allocate/trips', (req, res) => {
+  try {
+    const { summary, trips } = computeAllocation();
+    res.json({ summary, trips });
+  } catch (err) {
+    console.error('Allocation error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
