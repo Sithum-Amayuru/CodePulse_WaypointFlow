@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Loading Manifest - Dock</title>
+
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+<!-- Real barcode scanner library -->
+<script src="https://unpkg.com/@zxing/browser@latest"></script>
+
+<script data-purpose="tailwind-config">
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brandNavy: '#1e305e',
+        bannerBg: '#fef3c7',
+        bannerBorder: '#f59e0b',
+        actionGreen: '#10b981',
+        actionRed: '#ef4444',
+      },
+      fontFamily: {
+        sans: [
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
+          'Roboto',
+          'Helvetica',
+          'Arial',
+          'sans-serif'
+        ],
+      }
+    }
+  }
+};
+</script>
+
+<style data-purpose="custom-styling">
+body {
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#scanner-modal video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scanner-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.scanner-line {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 50%;
+  height: 2px;
+  background: #10b981;
+  box-shadow: 0 0 10px rgba(16,185,129,.8);
+}
+</style>
+</head>
+
+<body class="bg-[#f8fafc] text-slate-800 flex justify-center min-h-screen">
+
+<!-- Outer Handheld Frame Container -->
+<div class="w-full max-w-sm flex flex-col justify-between min-h-screen bg-[#f8fafc] shadow-md border-x border-slate-200">
+
+<!-- Top Content Area -->
+<main class="w-full flex flex-col items-center">
+
+<!-- BEGIN: MainHeader -->
+<header class="w-full bg-[#1b3160] text-white py-3.5 px-4 text-center shadow-sm">
+
+<h1 id="manifest-title" class="text-base font-semibold tracking-normal text-white">
+  Loading Manifest
+</h1>
+
+<p id="truck-route" class="text-xs text-slate-300 mt-0.5 tracking-tight">
+  Loading manifest data...
+</p>
+
+</header>
+<!-- END: MainHeader -->
+
+
+<!-- BEGIN: ProtocolBanner -->
+
+<div class="w-[90%] mx-auto bg-[#fff3c4] border border-[#f59e0b] border-t-0 py-2.5 px-4 text-center text-xs font-medium text-gray-800">
+
+  <span id="protocol-text">
+    LOADING PROTOCOL
+  </span>
+
+</div>
+
+<!-- END: ProtocolBanner -->
+
+
+<!-- BEGIN: LoadingStepsList -->
+
+<section
+  id="loading-steps-container"
+  aria-label="Loading Steps"
+  class="w-full px-4 py-2 space-y-3">
+
+  <!-- Backend data will be inserted here -->
+
+  <article class="bg-white rounded-md border border-slate-300/80 p-3 shadow-xs">
+
+    <p class="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+      LOADING
+    </p>
+
+    <h2 class="text-sm font-bold text-slate-900 mt-0.5">
+      Loading manifest...
+    </h2>
+
+    <p class="text-xs text-slate-700 mt-0.5 font-medium">
+      Connecting to backend
+    </p>
+
+  </article>
+
+</section>
+
+<!-- END: LoadingStepsList -->
+
+
+<!-- BEGIN: ActionButtons -->
+
+<section class="w-full px-4 pt-16 pb-4">
+
+<div class="grid grid-cols-2 gap-3">
+
+<!-- Scan Barcode Button -->
+
+<button
+  id="btn-scan"
+  class="w-full bg-[#10b981] hover:bg-[#059669] active:scale-[0.98] transition-all text-white text-xs font-semibold py-2.5 px-2 rounded shadow-sm text-center"
+  type="button">
+
+  Scan Barcode
+
+</button>
+
+
+<!-- Flag Missing/Damage Button -->
+
+<button
+  id="btn-flag"
+  class="w-full bg-[#ef4444] hover:bg-[#dc2626] active:scale-[0.98] transition-all text-white text-xs font-semibold py-2.5 px-2 rounded shadow-sm text-center"
+  type="button">
+
+  Flag Missing/Damage
+
+</button>
+
+</div>
+
+</section>
+
+<!-- END: ActionButtons -->
+
+</main>
+
+
+<!-- BEGIN: RationaleSection -->
+
+<footer class="w-full px-5 py-6">
+
+<p class="text-sm text-slate-900 leading-snug">
+
+<span class="font-bold">Rationale:</span>
+Designed with high contrast for warehouse tablets and handhelds.
+The loading sequence is retrieved from the backend and barcode
+verification is performed using the device camera.
+
+</p>
+
+</footer>
+
+<!-- END: RationaleSection -->
+
+</div>
+
+
+<!-- ========================================================= -->
+<!-- BARCODE SCANNER MODAL                                     -->
+<!-- ========================================================= -->
+
+<div
+  id="scanner-modal"
+  class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center">
+
+  <div class="w-full max-w-sm h-full max-h-screen flex flex-col bg-black">
+
+    <!-- Scanner Header -->
+
+    <div class="bg-[#1b3160] text-white px-4 py-3 flex justify-between items-center">
+
+      <div>
+
+        <p class="text-sm font-semibold">
+          Scan Barcode
+        </p>
+
+        <p class="text-[10px] text-slate-300">
+          Position the barcode inside the frame
+        </p>
+
+      </div>
+
+      <button
+        id="btn-close-scanner"
+        class="text-white text-xl px-2"
+        type="button">
+
+        ×
+
+      </button>
+
+    </div>
+
+
+    <!-- Camera -->
+
+    <div class="relative flex-1 bg-black overflow-hidden">
+
+      <video
+        id="scanner-video"
+        autoplay
+        muted
+        playsinline>
+      </video>
+
+      <div class="scanner-overlay">
+
+        <div
+          class="absolute left-[10%] right-[10%] top-[35%] bottom-[35%] border-2 border-white rounded-md">
+        </div>
+
+        <div class="scanner-line"></div>
+
+      </div>
+
+    </div>
+
+
+    <!-- Scanner Status -->
+
+    <div class="bg-black text-white text-center px-4 py-4">
+
+      <p
+        id="scanner-status"
+        class="text-xs text-slate-300">
+
+        Starting camera...
+
+      </p>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- ========================================================= -->
+<!-- JAVASCRIPT                                                -->
+<!-- ========================================================= -->
+
+<script>
+
+/*
+|--------------------------------------------------------------------------
+| BACKEND CONFIGURATION
+|--------------------------------------------------------------------------
+|
+| Change ONLY these URLs when your backend API is finalized.
+|
+*/
+
+const API_BASE_URL = "http://localhost:3000/api";
+
+
+const API_ENDPOINTS = {
+
+  // Current loading manifest
+  trip: `${API_BASE_URL}/trip`,
+
+  // Confirm loading of a stop
+  loadStop: (step) =>
+    `${API_BASE_URL}/trip/load/${encodeURIComponent(step)}`,
+
+  // Verify barcode
+  verifyBarcode:
+    `${API_BASE_URL}/barcode/verify`,
+
+  // Submit missing/damage report
+  damageReport:
+    `${API_BASE_URL}/damage-report`
+
+};
+
+
+/*
+|--------------------------------------------------------------------------
+| GLOBAL VARIABLES
+|--------------------------------------------------------------------------
+*/
+
+let currentTrip = null;
+
+let barcodeReader = null;
+
+let scannerControls = null;
+
+let isScannerRunning = false;
+
+
+/*
+|--------------------------------------------------------------------------
+| SAFE JSON REQUEST
+|--------------------------------------------------------------------------
+*/
+
+async function apiRequest(url, options = {}) {
+
+  const response = await fetch(url, {
+
+    ...options,
+
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    }
+
+  });
+
+  if (!response.ok) {
+
+    let message = `Server error: ${response.status}`;
+
+    try {
+
+      const errorData = await response.json();
+
+      if (errorData.message) {
+        message = errorData.message;
+      }
+
+    } catch (_) {}
+
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| FETCH REAL TRIP DATA
+|--------------------------------------------------------------------------
+*/
+
+async function fetchTripData() {
+
+  const container =
+    document.getElementById("loading-steps-container");
+
+  try {
+
+    container.innerHTML = `
+
+      <article class="bg-white rounded-md border border-slate-300/80 p-3 shadow-xs">
+
+        <p class="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+          LOADING
+        </p>
+
+        <h2 class="text-sm font-bold text-slate-900 mt-0.5">
+          Loading manifest...
+        </h2>
+
+        <p class="text-xs text-slate-700 mt-0.5 font-medium">
+          Connecting to server
+        </p>
+
+      </article>
+
+    `;
+
+
+    const trip = await apiRequest(API_ENDPOINTS.trip);
+
+    currentTrip = trip;
+
+    renderTrip(trip);
+
+  }
+
+  catch (error) {
+
+    console.error("Manifest error:", error);
+
+    container.innerHTML = `
+
+      <article class="bg-white rounded-md border border-red-300 p-3 shadow-xs">
+
+        <p class="text-[10px] font-bold text-red-600 uppercase tracking-wider">
+          CONNECTION ERROR
+        </p>
+
+        <h2 class="text-sm font-bold text-slate-900 mt-0.5">
+          Unable to load manifest
+        </h2>
+
+        <p class="text-xs text-slate-700 mt-0.5 font-medium">
+          ${escapeHtml(error.message)}
+        </p>
+
+        <button
+          onclick="fetchTripData()"
+          class="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold py-1.5 px-2 rounded">
+
+          Retry
+
+        </button>
+
+      </article>
+
+    `;
+
+  }
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| RENDER REAL TRIP
+|--------------------------------------------------------------------------
+*/
+
+function renderTrip(trip) {
+
+  const container =
+    document.getElementById("loading-steps-container");
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | Header
+  |--------------------------------------------------------------------------
+  */
+
+  const title =
+    trip.title ||
+    trip.manifestTitle ||
+    "Loading Manifest";
+
+  const dock =
+    trip.dock ||
+    trip.dockNumber ||
+    "";
+
+  const truck =
+    trip.truck ||
+    trip.truckNumber ||
+    "";
+
+  const route =
+    trip.route ||
+    trip.routeName ||
+    "";
+
+
+  document.getElementById("manifest-title").textContent =
+    dock
+      ? `${dock} | Loading Manifest`
+      : title;
+
+
+  let truckRoute = "";
+
+  if (truck && route) {
+
+    truckRoute =
+      `Truck: ${truck} (Route: ${route})`;
+
+  }
+
+  else if (truck) {
+
+    truckRoute =
+      `Truck: ${truck}`;
+
+  }
+
+  else if (route) {
+
+    truckRoute =
+      `Route: ${route}`;
+
+  }
+
+
+  document.getElementById("truck-route").textContent =
+    truckRoute;
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | Protocol
+  |--------------------------------------------------------------------------
+  */
+
+  const protocol =
+    trip.protocol ||
+    trip.loadingProtocol ||
+    "LIFO (Last-In, First-Out)";
+
+
+  document.getElementById("protocol-text").textContent =
+    `LOADING PROTOCOL: ${protocol}`;
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | Stops
+  |--------------------------------------------------------------------------
+  */
+
+  const stops =
+    Array.isArray(trip.stops)
+      ? trip.stops
+      : Array.isArray(trip.manifest)
+        ? trip.manifest
+        : [];
+
+
+  container.innerHTML = "";
+
+
+  if (stops.length === 0) {
+
+    container.innerHTML = `
+
+      <article class="bg-white rounded-md border border-slate-300/80 p-3 shadow-xs">
+
+        <p class="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+          MANIFEST
+        </p>
+
+        <h2 class="text-sm font-bold text-slate-900 mt-0.5">
+          No loading stops available
+        </h2>
+
+        <p class="text-xs text-slate-700 mt-0.5 font-medium">
+          No active loading data was returned by the server.
+        </p>
+
+      </article>
+
+    `;
+
+    return;
+
+  }
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | Create stop cards
+  |--------------------------------------------------------------------------
+  */
+
+  stops.forEach((stop, index) => {
+
+    const step =
+      stop.step ??
+      stop.sequence ??
+      index + 1;
+
+
+    const name =
+      stop.name ??
+      stop.stopName ??
+      stop.location ??
+      "Loading Stop";
+
+
+    const detail =
+      stop.detail ??
+      buildStopDetail(stop);
+
+
+    const loaded =
+      Boolean(
+        stop.loaded ??
+        stop.isLoaded ??
+        stop.status === "LOADED"
+      );
+
+
+    let stepTitle;
+
+
+    if (step === 1) {
+
+      stepTitle = "STEP 1 - LOAD FIRST";
+
+    }
+
+    else if (step === 2) {
+
+      stepTitle = "STEP 2 - LOAD SECOND";
+
+    }
+
+    else if (step === stops.length) {
+
+      stepTitle = `STEP ${step} - LOAD LAST (UNLOAD FIRST)`;
+
+    }
+
+    else {
+
+      stepTitle = `STEP ${step} - LOAD`;
+
+    }
+
+
+    const article =
+      document.createElement("article");
+
+
+    article.className =
+      `bg-white rounded-md border p-3 shadow-xs ${
+        loaded
+          ? "border-green-500 bg-green-50"
+          : "border-slate-300/80"
+      }`;
+
+
+    article.innerHTML = `
+
+      <div class="flex justify-between items-center">
+
+        <p class="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+
+          ${escapeHtml(stepTitle)}
+
+        </p>
+
+        <span class="text-xs font-bold ${
+          loaded
+            ? "text-green-600"
+            : "text-amber-600"
+        }">
+
+          ${
+            loaded
+              ? "✓ LOADED"
+              : "PENDING"
+          }
+
+        </span>
+
+      </div>
+
+
+      <h2 class="text-sm font-bold text-slate-900 mt-0.5">
+
+        Stop ${escapeHtml(String(step))}:
+        ${escapeHtml(String(name))}
+
+      </h2>
+
+
+      <p class="text-xs text-slate-700 mt-0.5 font-medium">
+
+        ${escapeHtml(String(detail))}
+
+      </p>
+
+
+      <button
+        data-step="${escapeHtml(String(step))}"
+        class="load-stop-button mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold py-1 px-2 rounded">
+
+        ${
+          loaded
+            ? "Marked as Loaded"
+            : "Confirm Load"
+        }
+
+      </button>
+
+    `;
+
+
+    const button =
+      article.querySelector(".load-stop-button");
+
+
+    if (loaded) {
+
+      button.disabled = true;
+
+      button.classList.remove(
+        "bg-blue-600",
+        "hover:bg-blue-700"
+      );
+
+      button.classList.add(
+        "bg-green-600",
+        "cursor-not-allowed"
+      );
+
+    }
+
+
+    button.addEventListener(
+      "click",
+      () => markAsLoaded(step)
+    );
+
+
+    container.appendChild(article);
+
+  });
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| BUILD STOP DETAIL
+|--------------------------------------------------------------------------
+*/
+
+function buildStopDetail(stop) {
+
+  const parts = [];
+
+
+  if (stop.crates != null) {
+
+    parts.push(
+      `${stop.crates} Crates`
+    );
+
+  }
+
+
+  if (stop.temperature) {
+
+    parts.push(
+      `(${stop.temperature})`
+    );
+
+  }
+
+
+  if (stop.palletId) {
+
+    parts.push(
+      `Pallet ID: ${stop.palletId}`
+    );
+
+  }
+
+
+  if (stop.pallet) {
+
+    parts.push(
+      `Pallet ID: ${stop.pallet}`
+    );
+
+  }
+
+
+  if (parts.length > 0) {
+
+    return parts.join(" | ");
+
+  }
+
+
+  return "Loading information available from backend";
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| CONFIRM LOAD
+|--------------------------------------------------------------------------
+*/
+
+async function markAsLoaded(step) {
+
+  const button =
+    document.querySelector(
+      `.load-stop-button[data-step="${CSS.escape(String(step))}"]`
+    );
+
+
+  if (button) {
+
+    button.disabled = true;
+
+    button.textContent =
+      "Updating...";
+
+  }
+
+
+  try {
+
+    await apiRequest(
+      API_ENDPOINTS.loadStop(step),
+      {
+        method: "POST"
+      }
+    );
+
+
+    /*
+    | Refresh from backend so the displayed state
+    | always represents server data.
+    */
+
+    await fetchTripData();
+
+
+  }
+
+  catch (error) {
+
+    console.error(
+      "Load update error:",
+      error
+    );
+
+
+    if (button) {
+
+      button.disabled = false;
+
+      button.textContent =
+        "Confirm Load";
+
+    }
+
+
+    alert(
+      `Failed to update load status.\n\n${error.message}`
+    );
+
+  }
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| REAL CAMERA BARCODE SCANNER
+|--------------------------------------------------------------------------
+*/
+
+async function startBarcodeScanner() {
+
+  const modal =
+    document.getElementById(
+      "scanner-modal"
+    );
+
+
+  const video =
+    document.getElementById(
+      "scanner-video"
+    );
+
+
+  const status =
+    document.getElementById(
+      "scanner-status"
+    );
+
+
+  modal.classList.remove("hidden");
+
+
+  status.textContent =
+    "Requesting camera access...";
+
+
+  try {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Check browser support
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      !window.ZXingBrowser ||
+      !window.ZXingBrowser.BrowserMultiFormatReader
+    ) {
+
+      throw new Error(
+        "Barcode scanner library is not available."
+      );
+
+    }
+
+
+    barcodeReader =
+      new ZXingBrowser.BrowserMultiFormatReader();
+
+
+    isScannerRunning = true;
+
+
+    status.textContent =
+      "Starting camera...";
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Get available cameras
+    |--------------------------------------------------------------------------
+    */
+
+    const devices =
+      await ZXingBrowser.BrowserCodeReader
+        .listVideoInputDevices();
+
+
+    if (!devices || devices.length === 0) {
+
+      throw new Error(
+        "No camera was found on this device."
+      );
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Prefer rear camera on mobile/tablet
+    |--------------------------------------------------------------------------
+    */
+
+    let selectedDevice =
+      devices.find(device => {
+
+        const label =
+          (device.label || "").toLowerCase();
+
+        return (
+          label.includes("back") ||
+          label.includes("rear") ||
+          label.includes("environment")
+        );
+
+      });
+
+
+    if (!selectedDevice) {
+
+      selectedDevice =
+        devices[devices.length - 1];
+
+    }
+
+
+    status.textContent =
+      "Point the camera at a barcode";
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Start continuous barcode decoding
+    |--------------------------------------------------------------------------
+    */
+
+    scannerControls =
+      await barcodeReader.decodeFromVideoDevice(
+
+        selectedDevice.deviceId,
+
+        video,
+
+        async (result, error) => {
+
+          if (!isScannerRunning) {
+            return;
+          }
+
+
+          if (result) {
+
+            const barcode =
+              result.getText();
+
+
+            /*
+            | Stop scanner immediately after
+            | successful detection.
+            */
+
+            await stopBarcodeScanner();
+
+
+            /*
+            | Verify barcode with backend.
+            */
+
+            await verifyBarcode(barcode);
+
+          }
+
+        }
+
+      );
+
+  }
+
+  catch (error) {
+
+    console.error(
+      "Scanner error:",
+      error
+    );
+
+
+    status.textContent =
+      error.message;
+
+
+    alert(
+      `Unable to start barcode scanner.\n\n${error.message}`
+    );
+
+  }
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| STOP CAMERA
+|--------------------------------------------------------------------------
+*/
+
+async function stopBarcodeScanner() {
+
+  isScannerRunning = false;
+
+
+  if (scannerControls) {
+
+    try {
+
+      scannerControls.stop();
+
+    }
+
+    catch (_) {}
+
+    scannerControls = null;
+
+  }
+
+
+  if (barcodeReader) {
+
+    try {
+
+      barcodeReader.reset();
+
+    }
+
+    catch (_) {}
+
+    barcodeReader = null;
+
+  }
+
+
+  const video =
+    document.getElementById(
+      "scanner-video"
+    );
+
+
+  if (video && video.srcObject) {
+
+    const tracks =
+      video.srcObject.getTracks();
+
+
+    tracks.forEach(track => {
+
+      track.stop();
+
+    });
+
+
+    video.srcObject = null;
+
+  }
+
+
+  document
+    .getElementById("scanner-modal")
+    .classList.add("hidden");
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| VERIFY BARCODE WITH BACKEND
+|--------------------------------------------------------------------------
+*/
+
+async function verifyBarcode(barcode) {
+
+  try {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Send actual scanned barcode to backend
+    |--------------------------------------------------------------------------
+    */
+
+    const result =
+      await apiRequest(
+        API_ENDPOINTS.verifyBarcode,
+        {
+          method: "POST",
+
+          body: JSON.stringify({
+
+            barcode: barcode,
+
+            /*
+            | Include current trip information when
+            | available so backend can identify context.
+            */
+
+            tripId:
+              currentTrip?.id ??
+              currentTrip?.tripId ??
+              null
+
+          })
+
+        }
+      );
+
+
+    if (result.valid === false) {
+
+      alert(
+        `Barcode verification failed.\n\nBarcode: ${barcode}\n\n${
+          result.message || "Barcode is not valid for this loading manifest."
+        }`
+      );
+
+      return;
+
+    }
+
+
+    alert(
+      result.message ||
+      `Barcode verified successfully.\n\nBarcode: ${barcode}`
+    );
+
+
+    /*
+    | Refresh manifest because the backend may
+    | have changed loading status.
+    */
+
+    await fetchTripData();
+
+  }
+
+  catch (error) {
+
+    console.error(
+      "Barcode verification error:",
+      error
+    );
+
+
+    alert(
+      `Barcode verification failed.\n\n${error.message}`
+    );
+
+  }
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| FLAG MISSING / DAMAGE
+|--------------------------------------------------------------------------
+*/
+
+async function reportDamage() {
+
+  const issue =
+    prompt(
+      "Please enter the details of the damaged or missing items:"
+    );
+
+
+  if (!issue || !issue.trim()) {
+
+    return;
+
+  }
+
+
+  try {
+
+    const result =
+      await apiRequest(
+        API_ENDPOINTS.damageReport,
+        {
+          method: "POST",
+
+          body: JSON.stringify({
+
+            description:
+              issue.trim(),
+
+            tripId:
+              currentTrip?.id ??
+              currentTrip?.tripId ??
+              null
+
+          })
+
+        }
+      );
+
+
+    alert(
+      result.message ||
+      "Damage Report Submitted Successfully to Dispatcher."
+    );
+
+  }
+
+  catch (error) {
+
+    console.error(
+      "Damage report error:",
+      error
+    );
+
+
+    alert(
+      `Failed to submit damage report.\n\n${error.message}`
+    );
+
+  }
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| ESCAPE HTML
+|--------------------------------------------------------------------------
+*/
+
+function escapeHtml(value) {
+
+  return String(value)
+
+    .replaceAll("&", "&amp;")
+
+    .replaceAll("<", "&lt;")
+
+    .replaceAll(">", "&gt;")
+
+    .replaceAll('"', "&quot;")
+
+    .replaceAll("'", "&#039;");
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| BUTTON EVENTS
+|--------------------------------------------------------------------------
+*/
+
+document
+  .getElementById("btn-scan")
+  .addEventListener(
+    "click",
+    startBarcodeScanner
+  );
+
+
+document
+  .getElementById("btn-flag")
+  .addEventListener(
+    "click",
+    reportDamage
+  );
+
+
+document
+  .getElementById("btn-close-scanner")
+  .addEventListener(
+    "click",
+    stopBarcodeScanner
+  );
+
+
+/*
+|--------------------------------------------------------------------------
+| CLOSE SCANNER WHEN CLICKING OUTSIDE
+|--------------------------------------------------------------------------
+*/
+
+document
+  .getElementById("scanner-modal")
+  .addEventListener(
+    "click",
+    function(event) {
+
+      if (
+        event.target === this
+      ) {
+
+        stopBarcodeScanner();
+
+      }
+
+    }
+  );
+
+
+/*
+|--------------------------------------------------------------------------
+| LOAD REAL DATA WHEN PAGE OPENS
+|--------------------------------------------------------------------------
+*/
+
+window.addEventListener(
+  "DOMContentLoaded",
+  () => {
+
+    fetchTripData();
+
+  }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| AUTO REFRESH
+|--------------------------------------------------------------------------
+|
+| Temporary real-time mechanism until the backend provides
+| WebSocket / Server-Sent Events.
+|
+| This does NOT create dummy data.
+| It simply requests the current backend state.
+|
+*/
+
+setInterval(
+  () => {
+
+    if (
+      !document.hidden &&
+      !isScannerRunning
+    ) {
+
+      fetchTripData();
+
+    }
+
+  },
+  5000
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| STOP CAMERA IF PAGE IS CLOSED
+|--------------------------------------------------------------------------
+*/
+
+window.addEventListener(
+  "beforeunload",
+  () => {
+
+    stopBarcodeScanner();
+
+  }
+);
+
+</script>
+
+</body>
+</html>
+```

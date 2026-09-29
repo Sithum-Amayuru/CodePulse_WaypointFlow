@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:15
+    container_name: waypoint_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Admin1234
+      POSTGRES_DB: waypoint_logistics_db
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    container_name: waypoint_backend
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_USER=postgres
+      - DB_PASSWORD=Admin1234
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=waypoint_logistics_db
+    depends_on:
+      - db
+
+  frontend:
+    image: nginx:alpine
+    container_name: waypoint_frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html

@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Waypoint Logistics | Dispatcher Hub</title>
+
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brandNavy: '#172B53',
+            kpiGreen: '#00d23f',
+            kpiBlue: '#1e40af',
+            kpiRed: '#e11d48',
+          }
+        }
+      }
+    }
+</script>
+
+<style data-purpose="custom-layout">
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #ffffff;
+    }
+    .kpi-box-shadow {
+      box-shadow: 0 0 0 1px #cbd5e1, 0 3px 6px -1px rgba(0, 0, 0, 0.08);
+    }
+    .main-panel-shadow {
+      box-shadow: 0 0 0 1px #cbd5e1, 0 4px 12px rgba(0, 0, 0, 0.04);
+    }
+</style>
+</head>
+
+<body class="min-h-screen text-slate-800 bg-white antialiased flex flex-col justify-between">
+
+<!-- BEGIN: MainContentWrapper -->
+<div class="w-full">
+
+<!-- BEGIN: TopHeader -->
+<header class="bg-[#1b2a4e] text-white px-6 py-2.5 flex items-center shadow-sm" data-purpose="header-bar">
+<div class="flex items-center space-x-2 text-base md:text-lg">
+<span class="font-normal tracking-wide text-slate-100">Waypoint Logistics</span>
+<span class="text-slate-400 font-light">|</span>
+<span class="text-slate-200 text-sm md:text-base font-light">Dispatcher Hub</span>
+</div>
+</header>
+<!-- END: TopHeader -->
+
+
+<!-- BEGIN: DashboardBody -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-4">
+
+<!-- BEGIN: KPICardsRow -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" data-purpose="kpi-metrics-row">
+
+<!-- Fleet Active KPI -->
+<div class="bg-white rounded border border-slate-300 kpi-box-shadow py-3.5 px-4 text-center transition-all hover:border-slate-400" data-purpose="kpi-card-fleet">
+<div class="text-[17px] font-semibold text-[#00c853]">Fleet Active</div>
+<div class="text-[13px] font-medium text-[#00c853] mt-0.5">
+<span id="kpi-fleet-count">0</span> / <span id="kpi-fleet-total">0</span> Vehicles
+</div>
+</div>
+
+<!-- Fuel Quota KPI -->
+<div class="bg-white rounded border border-slate-300 kpi-box-shadow py-3.5 px-4 text-center transition-all hover:border-slate-400" data-purpose="kpi-card-fuel">
+<div class="text-[17px] font-semibold text-[#2563eb]">Fuel Quota</div>
+<div class="text-[13px] font-medium text-[#2563eb] mt-0.5">
+<span id="kpi-fuel-percent">0</span>% Remaining
+</div>
+</div>
+
+<!-- Deferral Alerts KPI -->
+<div class="bg-white rounded border border-slate-300 kpi-box-shadow py-3.5 px-4 text-center transition-all hover:border-slate-400">
+<div class="text-[17px] font-semibold text-[#e11d48]">Deferral Alerts</div>
+<div class="text-[13px] font-medium text-[#e11d48] mt-0.5">
+<span id="kpi-deferral-count">0</span> Orders Pending
+</div>
+</div>
+
+</section>
+<!-- END: KPICardsRow -->
+
+
+<!-- BEGIN: DispatchOrdersPanel -->
+<section class="bg-white rounded-md border border-slate-300 main-panel-shadow overflow-hidden min-h-[360px] flex flex-col justify-between" data-purpose="orders-table-container">
+
+<div class="overflow-x-auto w-full">
+
+<table class="w-full text-left text-xs border-collapse">
+
+<!-- Table Header -->
+<thead>
+<tr class="bg-slate-50/75 border-b border-slate-200 text-slate-800 font-semibold tracking-wider uppercase text-[11px]">
+
+<th class="py-2.5 px-4 pl-6 w-1/5" scope="col">
+Order ID
+</th>
+
+<th class="py-2.5 px-4 w-1/4" scope="col">
+Destination
+</th>
+
+<th class="py-2.5 px-4 text-center w-1/6" scope="col">
+Weight / Vol
+</th>
+
+<th class="py-2.5 px-4 text-center w-1/6" scope="col">
+Status
+</th>
+
+<th class="py-2.5 px-4 pr-6 text-center w-1/6" scope="col">
+Action
+</th>
+
+</tr>
+</thead>
+
+
+<!-- Table Body -->
+<tbody id="orders-table-body" class="divide-y divide-slate-200 font-normal text-slate-800">
+
+<!-- Orders are loaded dynamically from the backend -->
+
+</tbody>
+
+</table>
+
+</div>
+
+<div class="flex-1 min-h-[140px] bg-white"></div>
+
+</section>
+<!-- END: DispatchOrdersPanel -->
+
+</main>
+<!-- END: DashboardBody -->
+
+</div>
+<!-- END: MainContentWrapper -->
+
+
+<!-- BEGIN: BottomRationale -->
+<footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 w-full text-slate-900 text-sm leading-relaxed" data-purpose="rationale-note">
+
+<p>
+<span class="font-bold text-slate-950">Rationale:</span>
+Designed to eliminate manual allocation delays by pairing high-level operational metrics with an actionable order-dispatch table. Immediate visual feedback via color-coded status badges enables dispatchers to spot over-capacity loads instantly and trigger single-click deferrals or automated route assignments.
+</p>
+
+</footer>
+<!-- END: BottomRationale -->
+
+
+<script>
+
+/* ============================================================
+   BACKEND CONFIGURATION
+   ============================================================ */
+
+const API_BASE_URL = 'http://localhost:3000/api';
+
+
+/* ============================================================
+   LOAD DASHBOARD DATA
+   ============================================================ */
+
+async function loadDashboard() {
+
+    try {
+
+        /*
+         * Get orders from backend
+         */
+        const response = await fetch(`${API_BASE_URL}/orders`);
+
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}`);
+        }
+
+        const orders = await response.json();
+
+
+        /*
+         * Make sure the response is an array
+         */
+        if (!Array.isArray(orders)) {
+            throw new Error('Invalid orders response from backend');
+        }
+
+
+        /*
+         * Render orders
+         */
+        renderOrders(orders);
+
+
+        /*
+         * Update KPI values
+         */
+        updateKPIs(orders);
+
+
+    } catch (error) {
+
+        console.error('Error loading dashboard:', error);
+
+        const tableBody = document.getElementById('orders-table-body');
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="5"
+                    class="py-4 text-center text-red-500">
+                    Unable to load orders from the server.
+                </td>
+            </tr>
+        `;
+
+    }
+
+}
+
+
+/* ============================================================
+   RENDER ORDERS
+   ============================================================ */
+
+function renderOrders(orders) {
+
+    const tableBody = document.getElementById('orders-table-body');
+
+    tableBody.innerHTML = '';
+
+
+    /*
+     * No orders
+     */
+    if (orders.length === 0) {
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="5"
+                    class="py-4 text-center text-slate-500">
+                    No orders found in the database.
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+
+    /*
+     * Create rows from backend data
+     */
+    orders.forEach(order => {
+
+        const row = document.createElement('tr');
+
+        row.className = "hover:bg-slate-50 transition-colors";
+
+
+        /*
+         * Order ID
+         */
+        const orderId =
+            order.order_id ??
+            order.orderId ??
+            order.id;
+
+
+        /*
+         * Destination
+         */
+        const destination =
+            order.outlet ??
+            order.destination ??
+            order.destination_name ??
+            'N/A';
+
+
+        /*
+         * Weight
+         */
+        const weight =
+            order.weight ??
+            order.weight_kg;
+
+
+        /*
+         * Volume
+         */
+        const volume =
+            order.volume ??
+            order.volume_m3;
+
+
+        /*
+         * Status
+         */
+        const status =
+            String(order.status ?? 'PENDING').toUpperCase();
+
+
+        /*
+         * Display weight / volume
+         */
+        let weightVolume = 'N/A';
+
+        if (weight !== undefined && weight !== null) {
+            weightVolume = `${weight} kg`;
+        }
+
+        if (volume !== undefined && volume !== null) {
+            weightVolume += ` / ${volume} m³`;
+        }
+
+
+        /*
+         * Status color
+         */
+        let statusColor = "text-slate-700";
+
+        if (
+            status === "ALLOCATED" ||
+            status === "DISPATCHED" ||
+            status === "ASSIGNED"
+        ) {
+            statusColor = "text-[#00c853]";
+        }
+
+        else if (
+            status === "OVER CAPACITY" ||
+            status === "DEFERRED"
+        ) {
+            statusColor = "text-[#e11d48]";
+        }
+
+        else if (
+            status === "PENDING"
+        ) {
+            statusColor = "text-[#0047ff]";
+        }
+
+
+        /*
+         * Action button
+         */
+        let actionButton = '';
+
+
+        /*
+         * Pending order
+         */
+        if (status === "PENDING") {
+
+            actionButton = `
+                <button
+                    onclick="updateOrderStatus('${orderId}', 'ALLOCATED')"
+                    class="w-24 bg-[#0047ff] hover:bg-[#003be0] active:bg-[#0032c2] text-white text-[10px] font-semibold py-1 px-3 rounded shadow-xs transition-colors"
+                    type="button">
+                    Auto-Allocate
+                </button>
+            `;
+
+        }
+
+
+        /*
+         * Allocated order
+         */
+        else if (
+            status === "ALLOCATED" ||
+            status === "ASSIGNED"
+        ) {
+
+            actionButton = `
+                <button
+                    onclick="updateOrderStatus('${orderId}', 'DISPATCHED')"
+                    class="w-24 bg-[#00c853] hover:bg-[#00b046] active:bg-[#009c3e] text-white text-[10px] font-semibold py-1 px-3 rounded shadow-xs transition-colors"
+                    type="button">
+                    Assign
+                </button>
+            `;
+
+        }
+
+
+        /*
+         * Over capacity
+         */
+        else if (status === "OVER CAPACITY") {
+
+            actionButton = `
+                <button
+                    onclick="updateOrderStatus('${orderId}', 'DEFERRED')"
+                    class="w-24 bg-[#e11d48] hover:bg-[#cc163e] active:bg-[#b01335] text-white text-[10px] font-semibold py-1 px-3 rounded shadow-xs transition-colors"
+                    type="button">
+                    Defer Order
+                </button>
+            `;
+
+        }
+
+
+        /*
+         * Deferred / dispatched
+         */
+        else if (
+            status === "DEFERRED" ||
+            status === "DISPATCHED"
+        ) {
+
+            actionButton = `
+                <span class="text-[10px] text-slate-500">
+                    No Action
+                </span>
+            `;
+
+        }
+
+
+        /*
+         * Unknown status
+         */
+        else {
+
+            actionButton = `
+                <span class="text-[10px] text-slate-500">
+                    No Action
+                </span>
+            `;
+
+        }
+
+
+        /*
+         * Create row
+         */
+        row.innerHTML = `
+
+            <td class="py-2 px-4 pl-6 whitespace-nowrap font-medium text-slate-700">
+                #${escapeHtml(orderId)}
+            </td>
+
+            <td class="py-2 px-4 whitespace-nowrap">
+                ${escapeHtml(destination)}
+            </td>
+
+            <td class="py-2 px-4 whitespace-nowrap text-center text-slate-700">
+                ${escapeHtml(weightVolume)}
+            </td>
+
+            <td class="py-2 px-4 whitespace-nowrap text-center text-[11px] font-semibold tracking-wide ${statusColor}">
+                ${escapeHtml(status)}
+            </td>
+
+            <td class="py-2 px-4 pr-6 whitespace-nowrap text-center">
+                ${actionButton}
+            </td>
+
+        `;
+
+
+        tableBody.appendChild(row);
+
+    });
+
+}
+
+
+/* ============================================================
+   UPDATE KPI VALUES
+   ============================================================ */
+
+function updateKPIs(orders) {
+
+
+    /*
+     * Fleet data
+     *
+     * These values should ideally come from
+     * a separate backend /api/dashboard endpoint.
+     *
+     * If your /api/orders response contains
+     * fleet information, this code will use it.
+     */
+
+    const activeVehicles =
+        orders.activeVehicles ??
+        orders.active_vehicles ??
+        null;
+
+
+    const totalVehicles =
+        orders.totalVehicles ??
+        orders.total_vehicles ??
+        null;
+
+
+    /*
+     * If backend only returns an array,
+     * don't invent vehicle numbers.
+     */
+    if (activeVehicles !== null && totalVehicles !== null) {
+
+        document.getElementById('kpi-fleet-count').textContent =
+            activeVehicles;
+
+        document.getElementById('kpi-fleet-total').textContent =
+            totalVehicles;
+
+    }
+
+    else {
+
+        document.getElementById('kpi-fleet-count').textContent =
+            '—';
+
+        document.getElementById('kpi-fleet-total').textContent =
+            '—';
+
+    }
+
+
+    /*
+     * Fuel quota
+     *
+     * Use backend value if available.
+     */
+    const fuelPercent =
+        orders.fuelPercent ??
+        orders.fuel_percentage ??
+        null;
+
+
+    if (fuelPercent !== null) {
+
+        document.getElementById('kpi-fuel-percent').textContent =
+            fuelPercent;
+
+    }
+
+    else {
+
+        document.getElementById('kpi-fuel-percent').textContent =
+            '—';
+
+    }
+
+
+    /*
+     * Count pending / deferred orders
+     */
+    const deferralCount = orders.filter(order => {
+
+        const status =
+            String(order.status ?? '').toUpperCase();
+
+        return (
+            status === 'PENDING' ||
+            status === 'OVER CAPACITY' ||
+            status === 'DEFERRED'
+        );
+
+    }).length;
+
+
+    document.getElementById('kpi-deferral-count').textContent =
+        deferralCount;
+
+}
+
+
+/* ============================================================
+   UPDATE ORDER STATUS
+   ============================================================ */
+
+async function updateOrderStatus(orderId, newStatus) {
+
+    try {
+
+        /*
+         * Disable action while request is running
+         */
+        const buttons = document.querySelectorAll('button');
+
+        buttons.forEach(button => {
+            button.disabled = true;
+        });
+
+
+        /*
+         * Send update to backend
+         *
+         * Assumed backend:
+         *
+         * PATCH /api/orders/:id
+         *
+         */
+        const response = await fetch(
+            `${API_BASE_URL}/orders/${encodeURIComponent(orderId)}`,
+            {
+                method: 'PATCH',
+
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+
+                body: JSON.stringify({
+                    status: newStatus
+                })
+            }
+        );
+
+
+        /*
+         * Backend rejected request
+         */
+        if (!response.ok) {
+
+            let errorMessage =
+                `Failed to update order (${response.status})`;
+
+            try {
+
+                const errorData = await response.json();
+
+                if (errorData.message) {
+                    errorMessage = errorData.message;
+                }
+
+            } catch (e) {
+                // Ignore invalid error response
+            }
+
+            throw new Error(errorMessage);
+        }
+
+
+        /*
+         * Reload everything from backend
+         */
+        await loadDashboard();
+
+
+    } catch (error) {
+
+        console.error('Error updating order:', error);
+
+        alert(
+            `Unable to update order.\n\n${error.message}`
+        );
+
+    }
+
+}
+
+
+/* ============================================================
+   HTML ESCAPE
+   ============================================================ */
+
+function escapeHtml(value) {
+
+    if (value === null || value === undefined) {
+        return '';
+    }
+
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+}
+
+
+/* ============================================================
+   LOAD DATA WHEN PAGE OPENS
+   ============================================================ */
+
+window.addEventListener('DOMContentLoaded', () => {
+
+    loadDashboard();
+
+});
+
+
+/* ============================================================
+   OPTIONAL AUTO REFRESH
+   ============================================================ */
+
+/*
+ * Refresh dashboard every 10 seconds.
+ *
+ * This means if another dispatcher or backend process
+ * changes an order, this page will eventually show
+ * the latest data without manually refreshing.
+ */
+
+setInterval(() => {
+
+    loadDashboard();
+
+}, 10000);
+
+</script>
+
+</body>
+</html>
+```

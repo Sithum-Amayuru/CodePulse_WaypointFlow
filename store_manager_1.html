@@ -1,0 +1,1874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Waypoint Logistics - Store Manager Portal</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <style data-purpose="custom-layout">
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+  </style>
+</head>
+
+<body class="bg-[#f8fafc] text-gray-800 min-h-screen pb-12 antialiased">
+
+  <header class="bg-[#1e3a6a] text-white px-6 py-3 shadow-md">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center text-sm gap-2">
+      <div class="flex items-center space-x-2 font-medium tracking-wide">
+        <span class="text-base font-semibold">Waypoint Logistics</span>
+        <span class="text-blue-200">|</span>
+        <span class="text-slate-200">Store Manager Portal</span>
+      </div>
+
+      <div id="outlet-name" class="text-slate-100 font-medium tracking-wide">
+        Loading outlet...
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 pt-5 space-y-5">
+
+    <div class="w-full bg-[#fef2f2] border border-[#fca5a5] rounded-sm py-2 px-4 text-center" data-purpose="alert-banner">
+      <p class="text-[#dc2626] font-semibold text-xs sm:text-sm tracking-wide uppercase">
+        DAILY ORDER CUTOFF:
+        <span id="cutoff-time">4:00 PM</span>
+
+        <span class="normal-case font-medium text-red-600">
+          (Remaining Time:
+          <span id="remaining-time">Loading...</span>)
+        </span>
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+
+      <section
+        class="md:col-span-7 bg-white border border-gray-200 shadow-sm p-4 rounded-sm flex flex-col justify-between"
+        data-purpose="select-items">
+
+        <div>
+
+          <h2 class="text-sm font-semibold text-gray-800 mb-3">
+            Select Items to Order
+          </h2>
+
+          <div class="flex gap-4 mb-4">
+
+            <button
+              id="btn-ambient"
+              class="bg-[#d1d5db] text-gray-800 font-medium text-xs px-8 py-1.5 rounded-sm shadow-inner hover:bg-gray-300 transition-colors"
+              type="button">
+              Ambient Items
+            </button>
+
+            <button
+              id="btn-chilled"
+              class="bg-transparent text-gray-500 font-medium text-xs px-6 py-1.5 rounded-sm hover:text-gray-800 transition-colors"
+              type="button">
+              Chilled Items
+            </button>
+
+          </div>
+
+          <div id="product-list" class="space-y-2.5">
+
+            <div class="border border-gray-300 bg-[#e5e7eb] px-3 py-2 flex items-center justify-between text-xs rounded-sm">
+
+              <div class="flex items-center space-x-2 text-gray-800 font-medium">
+                <span>Loading products...</span>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <section
+        class="md:col-span-5 bg-white border border-gray-200 shadow-sm p-4 rounded-sm flex flex-col justify-between space-y-3"
+        data-purpose="order-summary">
+
+        <div>
+
+          <h2 class="text-sm font-semibold text-gray-800 mb-2">
+            Current Delivery &amp; Order Summary
+          </h2>
+
+          <div id="order-summary-content" class="space-y-1 text-xs">
+
+            <div class="flex items-center space-x-1.5">
+              <span class="text-gray-700 font-semibold">
+                Loading current order...
+              </span>
+            </div>
+
+          </div>
+
+          <div class="mt-2.5">
+
+            <button
+              id="btn-confirm-receipt"
+              class="bg-[#059669] hover:bg-emerald-700 text-white font-semibold text-[11px] px-3 py-1.5 rounded-sm shadow-sm transition inline-block"
+              type="button">
+              Confirm Receipt & Inspect
+            </button>
+
+          </div>
+
+        </div>
+
+        <div>
+
+          <button
+            id="btn-submit-order"
+            class="w-full bg-[#16a34a] hover:bg-green-700 text-white font-semibold text-xs sm:text-sm py-2 rounded-sm shadow-sm transition"
+            type="button">
+            Submit Daily Order
+          </button>
+
+        </div>
+
+      </section>
+
+    </div>
+
+
+    <section
+      id="inspect-modal"
+      class="bg-white border-2 border-gray-300 shadow-sm rounded-sm p-4 relative"
+      data-purpose="inspect-modal-card">
+
+      <button
+        id="btn-close-modal"
+        aria-label="Close"
+        class="absolute top-2 right-2 bg-[#dc2626] text-white hover:bg-red-700 w-6 h-6 flex items-center justify-center font-bold text-xs shadow-sm"
+        type="button">
+        X
+      </button>
+
+      <div class="border-b border-gray-200 pb-2 mb-3">
+
+        <h3 class="text-sm font-bold text-gray-800 tracking-tight">
+          Inspect &amp; Confirm Delivery
+        </h3>
+
+        <p
+          id="delivery-header"
+          class="text-xs text-gray-600 font-medium mt-0.5">
+          Loading delivery information...
+        </p>
+
+      </div>
+
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+
+        <div id="inspection-items" class="space-y-4">
+
+          <div class="text-xs text-gray-600">
+            Loading delivery items...
+          </div>
+
+        </div>
+
+
+        <div class="space-y-3 flex flex-col justify-between h-full">
+
+          <div>
+
+            <label
+              class="inline-flex items-center space-x-2 text-xs font-semibold text-gray-800 cursor-pointer mb-2">
+
+              <input
+                id="discrepancy-checkbox"
+                class="form-checkbox text-blue-600 h-4 w-4 rounded-sm focus:ring-0"
+                type="checkbox"/>
+
+              <span>
+                Report Discrepancy / Damaged Goods
+              </span>
+
+            </label>
+
+
+            <div class="flex items-start gap-3 mt-1">
+
+              <div
+                id="btn-upload-photo"
+                class="w-28 h-24 bg-[#d1d5db] border border-dashed border-gray-400 rounded-sm flex items-center justify-center p-2 text-center shrink-0 cursor-pointer hover:bg-gray-300 transition">
+
+                <span class="text-[11px] leading-tight text-gray-700 font-medium">
+                  Click or Drag to Upload Photo Evidence
+                </span>
+
+              </div>
+
+
+              <div class="text-xs text-gray-800 pt-1 leading-snug w-full">
+
+                <span class="font-bold block text-gray-900 mb-1">
+                  NOTE:
+                </span>
+
+                <textarea
+                  id="issue-notes"
+                  class="w-full h-16 bg-white border border-gray-400 rounded-sm p-1.5 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                  placeholder="Type your issue details here..."></textarea>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <div class="pt-2 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+
+            <div class="space-y-1">
+
+              <div class="w-48 h-16 border-b-2 border-black bg-[#f1f5f9] cursor-crosshair">
+                <canvas
+                  id="signature-pad"
+                  class="w-full h-full"></canvas>
+              </div>
+
+              <div class="flex justify-between items-center w-48">
+
+                <span class="text-[11px] text-gray-800 font-semibold">
+                  Store Manager Signature
+                </span>
+
+                <button
+                  id="clear-signature"
+                  class="text-[10px] text-red-600 hover:underline font-medium"
+                  type="button">
+                  Clear
+                </button>
+
+              </div>
+
+            </div>
+
+
+            <div>
+
+              <button
+                id="btn-submit-issues"
+                class="bg-[#16a34a] hover:bg-green-700 text-white font-semibold text-xs px-4 py-2 rounded-sm shadow-sm transition"
+                type="button">
+                Submit Confirmation & Log Issues
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <footer
+      class="pt-2 pb-6 text-xs text-gray-700 leading-relaxed"
+      data-purpose="design-rationale">
+
+      <p>
+
+        <span class="font-bold text-gray-900">
+          Rationale:
+        </span>
+
+        This interface enables the Store Manager to verify physical inventory upon delivery against the placed order, sign a digital Proof of Delivery (POD), and immediately log any discrepancies (missing or damaged items) with photo evidence.
+        By capturing real-time verification and automated issue reporting at the loading dock, this flow eliminates paper-based disputes, speeds up supplier claims, and maintains full operational transparency across dispatchers and store managers.
+
+      </p>
+
+    </footer>
+
+  </main>
+
+
+  <script>
+
+    /* ============================================================
+       BACKEND CONFIGURATION
+       ============================================================
+
+       Change ONLY API_BASE_URL when you provide your backend.
+
+       Example:
+
+       const API_BASE_URL = "http://localhost:3000/api";
+
+       Production example:
+
+       const API_BASE_URL = "https://your-domain.com/api";
+
+    ============================================================ */
+
+    const API_BASE_URL = "http://localhost:3000/api";
+
+
+    /* ============================================================
+       APPLICATION STATE
+       ============================================================ */
+
+    let storeData = null;
+    let products = [];
+    let currentOrder = null;
+    let currentDelivery = null;
+
+    let uploadedPhoto = null;
+
+
+    /* ============================================================
+       API HELPER
+       ============================================================ */
+
+    async function apiRequest(endpoint, options = {}) {
+
+      const response = await fetch(
+        `${API_BASE_URL}${endpoint}`,
+        {
+          ...options,
+          headers: {
+            "Content-Type": "application/json",
+            ...(options.headers || {})
+          }
+        }
+      );
+
+      if (!response.ok) {
+
+        let errorMessage = `Request failed: ${response.status}`;
+
+        try {
+
+          const errorData = await response.json();
+
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+
+        } catch (error) {
+          // Ignore JSON parsing error
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      return response.json();
+    }
+
+
+    /* ============================================================
+       LOAD STORE MANAGER DATA
+       ============================================================ */
+
+    async function loadStoreData() {
+
+      try {
+
+        /*
+          Expected backend response example:
+
+          {
+            "outlet": {
+              "id": 42,
+              "name": "Outlet #042 - Kandy City"
+            },
+            "cutoffTime": "16:00",
+            "remainingTime": "01h 24m"
+          }
+        */
+
+        const data = await apiRequest("/store-manager");
+
+        storeData = data;
+
+        updateStoreInformation(data);
+
+      } catch (error) {
+
+        console.error("Store data error:", error);
+
+        document.getElementById("outlet-name").textContent =
+          "Unable to load outlet";
+
+      }
+
+    }
+
+
+    /* ============================================================
+       UPDATE STORE INFORMATION
+       ============================================================ */
+
+    function updateStoreInformation(data) {
+
+      if (!data) return;
+
+      if (data.outlet) {
+
+        const outletName =
+          data.outlet.name ||
+          data.outlet.outlet_name ||
+          data.outlet;
+
+        document.getElementById("outlet-name").textContent =
+          outletName;
+
+      }
+
+      if (data.cutoffTime) {
+
+        document.getElementById("cutoff-time").textContent =
+          data.cutoffTime;
+
+      }
+
+      if (data.remainingTime) {
+
+        document.getElementById("remaining-time").textContent =
+          data.remainingTime;
+
+      }
+
+    }
+
+
+    /* ============================================================
+       LOAD PRODUCTS
+       ============================================================ */
+
+    async function loadProducts(category = "ambient") {
+
+      const productList =
+        document.getElementById("product-list");
+
+      productList.innerHTML = `
+        <div class="border border-gray-300 bg-[#e5e7eb] px-3 py-2 flex items-center justify-between text-xs rounded-sm">
+          <div class="flex items-center space-x-2 text-gray-800 font-medium">
+            <span>Loading products...</span>
+          </div>
+        </div>
+      `;
+
+      try {
+
+        const data =
+          await apiRequest(`/products?category=${encodeURIComponent(category)}`);
+
+        products =
+          Array.isArray(data)
+            ? data
+            : (data.products || []);
+
+        renderProducts(products);
+
+      } catch (error) {
+
+        console.error("Product loading error:", error);
+
+        productList.innerHTML = `
+          <div class="border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-600 rounded-sm">
+            Failed to load products.
+          </div>
+        `;
+
+      }
+
+    }
+
+
+    /* ============================================================
+       RENDER PRODUCTS
+       ============================================================ */
+
+    function renderProducts(productData) {
+
+      const productList =
+        document.getElementById("product-list");
+
+      productList.innerHTML = "";
+
+      if (!productData.length) {
+
+        productList.innerHTML = `
+          <div class="border border-gray-300 bg-[#e5e7eb] px-3 py-2 text-xs rounded-sm">
+            No products available.
+          </div>
+        `;
+
+        return;
+      }
+
+
+      productData.forEach(product => {
+
+        const productId =
+          product.id ||
+          product.product_id;
+
+        const productName =
+          product.name ||
+          product.product_name;
+
+        const defaultQuantity =
+          product.defaultQuantity ||
+          product.default_quantity ||
+          1;
+
+        const category =
+          product.category ||
+          "Ambient";
+
+
+        const row =
+          document.createElement("div");
+
+        row.className =
+          "border border-gray-300 bg-[#e5e7eb] px-3 py-2 flex items-center justify-between text-xs rounded-sm";
+
+
+        row.innerHTML = `
+
+          <div class="flex items-center space-x-2 text-gray-800 font-medium">
+
+            <span>${escapeHtml(productName)}</span>
+
+            -
+
+            <span class="text-gray-600">
+              Qty:
+            </span>
+
+            <input
+              type="number"
+              min="1"
+              value="${defaultQuantity}"
+              data-product-id="${productId}"
+              class="product-quantity w-16 h-6 bg-white border border-gray-400 px-1 rounded text-gray-900 font-bold text-center focus:outline-none focus:ring-1 focus:ring-blue-500">
+
+          </div>
+
+          <button
+            data-product-id="${productId}"
+            class="btn-add-product bg-[#2563eb] hover:bg-blue-700 text-white font-medium text-xs px-5 py-1 rounded shadow-sm transition"
+            type="button">
+
+            Add to Cart
+
+          </button>
+
+        `;
+
+
+        productList.appendChild(row);
+
+      });
+
+
+      document
+        .querySelectorAll(".btn-add-product")
+        .forEach(button => {
+
+          button.addEventListener(
+            "click",
+            addProductToCart
+          );
+
+        });
+
+    }
+
+
+    /* ============================================================
+       ADD PRODUCT TO CART
+       ============================================================ */
+
+    async function addProductToCart(event) {
+
+      const button =
+        event.currentTarget;
+
+      const productId =
+        button.dataset.productId;
+
+      const quantityInput =
+        document.querySelector(
+          `.product-quantity[data-product-id="${productId}"]`
+        );
+
+      const quantity =
+        Number(quantityInput.value);
+
+
+      if (!quantity || quantity < 1) {
+
+        alert("Please enter a valid quantity.");
+
+        return;
+
+      }
+
+
+      button.disabled = true;
+
+      button.innerHTML = "Adding...";
+
+
+      try {
+
+        /*
+          This request can be adjusted to your backend later.
+        */
+
+        await apiRequest(
+          "/cart/items",
+          {
+            method: "POST",
+
+            body: JSON.stringify({
+              productId: productId,
+              quantity: quantity
+            })
+
+          }
+        );
+
+
+        button.innerHTML =
+          "Added ✓";
+
+        button.classList.remove(
+          "bg-[#2563eb]",
+          "hover:bg-blue-700"
+        );
+
+        button.classList.add(
+          "bg-gray-500"
+        );
+
+
+        await loadCurrentOrder();
+
+
+      } catch (error) {
+
+        console.error(
+          "Cart error:",
+          error
+        );
+
+        alert(
+          "Unable to add this item to the order."
+        );
+
+        button.disabled = false;
+
+        button.innerHTML =
+          "Add to Cart";
+
+      }
+
+    }
+
+
+    /* ============================================================
+       LOAD CURRENT ORDER
+       ============================================================ */
+
+    async function loadCurrentOrder() {
+
+      try {
+
+        const data =
+          await apiRequest(
+            "/orders/current"
+          );
+
+        currentOrder = data;
+
+        renderOrderSummary(data);
+
+      } catch (error) {
+
+        console.error(
+          "Current order error:",
+          error
+        );
+
+        document.getElementById(
+          "order-summary-content"
+        ).innerHTML = `
+
+          <div class="text-red-600 text-xs">
+            Unable to load current order.
+          </div>
+
+        `;
+
+      }
+
+    }
+
+
+    /* ============================================================
+       RENDER ORDER SUMMARY
+       ============================================================ */
+
+    function renderOrderSummary(order) {
+
+      const container =
+        document.getElementById(
+          "order-summary-content"
+        );
+
+
+      if (!order) {
+
+        container.innerHTML = `
+          <div class="text-gray-600">
+            No current order.
+          </div>
+        `;
+
+        return;
+
+      }
+
+
+      const orderNumber =
+        order.orderNumber ||
+        order.order_number ||
+        order.id ||
+        "-";
+
+
+      const status =
+        order.status ||
+        "PENDING";
+
+
+      const items =
+        order.items ||
+        order.order_items ||
+        [];
+
+
+      const eta =
+        order.eta ||
+        order.estimatedArrival ||
+        order.estimated_arrival ||
+        "-";
+
+
+      const truck =
+        order.truck ||
+        order.vehicleNumber ||
+        order.vehicle_number ||
+        "-";
+
+
+      let itemsHtml = "";
+
+
+      items.forEach(item => {
+
+        const name =
+          item.name ||
+          item.product_name ||
+          "Item";
+
+        const quantity =
+          item.quantity ||
+          item.qty ||
+          0;
+
+
+        itemsHtml += `
+
+          <div>
+            ${escapeHtml(name)} * ${quantity}
+          </div>
+
+        `;
+
+      });
+
+
+      container.innerHTML = `
+
+        <div class="flex items-center space-x-1.5">
+
+          <span class="text-gray-700 font-semibold">
+            Order #${escapeHtml(String(orderNumber))}
+          </span>
+
+          <span class="text-gray-400">
+            -
+          </span>
+
+          <span class="text-[#16a34a] font-bold tracking-wide uppercase">
+            ${escapeHtml(String(status))}
+          </span>
+
+        </div>
+
+
+        <div class="pl-2 space-y-0.5 text-gray-600 text-[11px] font-medium leading-tight">
+
+          ${itemsHtml || "<div>No items</div>"}
+
+        </div>
+
+
+        <div class="pt-2 text-[11px] text-gray-600 font-medium">
+
+          ETA: ${escapeHtml(String(eta))}
+          |
+          Truck: ${escapeHtml(String(truck))}
+
+        </div>
+
+      `;
+
+    }
+
+
+    /* ============================================================
+       SUBMIT DAILY ORDER
+       ============================================================ */
+
+    const btnSubmitOrder =
+      document.getElementById(
+        "btn-submit-order"
+      );
+
+
+    btnSubmitOrder.addEventListener(
+      "click",
+      async function() {
+
+        if (!currentOrder) {
+
+          alert(
+            "There is no order to submit."
+          );
+
+          return;
+
+        }
+
+
+        const originalText =
+          this.innerHTML;
+
+        this.disabled = true;
+
+        this.innerHTML =
+          "Processing...";
+
+
+        try {
+
+          /*
+            Backend should validate the authenticated
+            store manager and create/update the order.
+          */
+
+          await apiRequest(
+            "/orders/submit",
+            {
+              method: "POST",
+
+              body: JSON.stringify({
+                orderId:
+                  currentOrder.id ||
+                  currentOrder.order_id
+              })
+
+            }
+          );
+
+
+          alert(
+            "Success! Your daily order has been submitted."
+          );
+
+
+          this.innerHTML =
+            "Order Submitted ✓";
+
+
+          await loadCurrentOrder();
+
+
+        } catch (error) {
+
+          console.error(
+            "Order submission error:",
+            error
+          );
+
+          alert(
+            "Failed to submit the daily order."
+          );
+
+          this.disabled = false;
+
+          this.innerHTML =
+            originalText;
+
+        }
+
+      }
+    );
+
+
+    /* ============================================================
+       LOAD DELIVERY
+       ============================================================ */
+
+    async function loadDelivery() {
+
+      try {
+
+        const data =
+          await apiRequest(
+            "/deliveries/current"
+          );
+
+        currentDelivery = data;
+
+        renderDelivery(data);
+
+      } catch (error) {
+
+        console.error(
+          "Delivery loading error:",
+          error
+        );
+
+        document.getElementById(
+          "delivery-header"
+        ).textContent =
+          "No current delivery information available.";
+
+      }
+
+    }
+
+
+    /* ============================================================
+       RENDER DELIVERY
+       ============================================================ */
+
+    function renderDelivery(delivery) {
+
+      if (!delivery) return;
+
+
+      const orderNumber =
+        delivery.orderNumber ||
+        delivery.order_number ||
+        delivery.orderId ||
+        "-";
+
+
+      const vehicle =
+        delivery.vehicle ||
+        delivery.vehicleNumber ||
+        delivery.vehicle_number ||
+        "-";
+
+
+      const driver =
+        delivery.driver ||
+        delivery.driverName ||
+        delivery.driver_name ||
+        "-";
+
+
+      document.getElementById(
+        "delivery-header"
+      ).textContent =
+        `Order #${orderNumber} | Vehicle: ${vehicle} | Driver: ${driver}`;
+
+
+      const items =
+        delivery.items ||
+        delivery.delivery_items ||
+        [];
+
+
+      renderInspectionItems(items);
+
+    }
+
+
+    /* ============================================================
+       RENDER INSPECTION ITEMS
+       ============================================================ */
+
+    function renderInspectionItems(items) {
+
+      const container =
+        document.getElementById(
+          "inspection-items"
+        );
+
+
+      container.innerHTML = "";
+
+
+      if (!items.length) {
+
+        container.innerHTML = `
+          <div class="text-xs text-gray-600">
+            No delivery items available.
+          </div>
+        `;
+
+        return;
+
+      }
+
+
+      items.forEach(
+        (item, index) => {
+
+          const itemId =
+            item.id ||
+            item.delivery_item_id ||
+            index;
+
+
+          const name =
+            item.name ||
+            item.product_name ||
+            "Item";
+
+
+          const ordered =
+            item.orderedQuantity ||
+            item.ordered_quantity ||
+            item.quantity ||
+            0;
+
+
+          const received =
+            item.receivedQuantity ??
+            item.received_quantity ??
+            ordered;
+
+
+          const damaged =
+            item.damaged ??
+            item.isDamaged ??
+            false;
+
+
+          const wrapper =
+            document.createElement("div");
+
+
+          wrapper.innerHTML = `
+
+            <div>
+
+              <div class="text-xs font-semibold text-gray-700 mb-1">
+
+                ${escapeHtml(name)}
+                -
+                Ordered: ${ordered}
+
+              </div>
+
+
+              <div class="bg-[#d1d5db] p-2 rounded-sm text-xs space-y-1.5 text-gray-800">
+
+                <div class="font-medium flex items-center space-x-2">
+
+                  <span>
+                    Received Qty:
+                  </span>
+
+                  <input
+                    type="number"
+                    min="0"
+                    max="${ordered}"
+                    value="${received}"
+                    data-item-id="${itemId}"
+                    class="received-quantity w-16 h-6 bg-white border border-gray-400 px-1 rounded text-gray-900 font-bold text-center focus:outline-none focus:ring-1 focus:ring-blue-500">
+
+                </div>
+
+
+                <div class="flex items-center space-x-4">
+
+                  <label class="inline-flex items-center space-x-1 cursor-pointer">
+
+                    <input
+                      class="form-radio text-blue-600 h-3.5 w-3.5 focus:ring-0"
+                      name="item_${itemId}_status"
+                      type="radio"
+                      value="GOOD"
+                      ${!damaged ? "checked" : ""}/>
+
+                    <span class="text-xs font-medium">
+                      Good Condition
+                    </span>
+
+                  </label>
+
+
+                  <label class="inline-flex items-center space-x-1 cursor-pointer">
+
+                    <input
+                      class="form-radio text-blue-600 h-3.5 w-3.5 focus:ring-0"
+                      name="item_${itemId}_status"
+                      type="radio"
+                      value="DAMAGED"
+                      ${damaged ? "checked" : ""}/>
+
+                    <span class="text-xs font-medium">
+                      Damaged / Missing
+                    </span>
+
+                  </label>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          `;
+
+
+          container.appendChild(
+            wrapper
+          );
+
+        }
+      );
+
+    }
+
+
+    /* ============================================================
+       CONFIRM RECEIPT / INSPECT
+       ============================================================ */
+
+    const btnConfirmReceipt =
+      document.getElementById(
+        "btn-confirm-receipt"
+      );
+
+
+    btnConfirmReceipt.addEventListener(
+      "click",
+      function() {
+
+        const modal =
+          document.getElementById(
+            "inspect-modal"
+          );
+
+
+        modal.classList.remove(
+          "hidden"
+        );
+
+
+        modal.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+
+      }
+    );
+
+
+    /* ============================================================
+       SUBMIT DELIVERY CONFIRMATION
+       ============================================================ */
+
+    const btnSubmitIssues =
+      document.getElementById(
+        "btn-submit-issues"
+      );
+
+
+    btnSubmitIssues.addEventListener(
+      "click",
+      async function() {
+
+        if (!currentDelivery) {
+
+          alert(
+            "No delivery is currently loaded."
+          );
+
+          return;
+
+        }
+
+
+        const deliveryId =
+          currentDelivery.id ||
+          currentDelivery.delivery_id;
+
+
+        const receivedItems = [];
+
+
+        document
+          .querySelectorAll(
+            ".received-quantity"
+          )
+          .forEach(input => {
+
+            const itemId =
+              input.dataset.itemId;
+
+            const quantity =
+              Number(input.value);
+
+
+            const statusRadio =
+              document.querySelector(
+                `input[name="item_${itemId}_status"]:checked`
+              );
+
+
+            receivedItems.push({
+
+              itemId: itemId,
+
+              receivedQuantity:
+                quantity,
+
+              status:
+                statusRadio
+                  ? statusRadio.value
+                  : "GOOD"
+
+            });
+
+          });
+
+
+        const discrepancy =
+          document.getElementById(
+            "discrepancy-checkbox"
+          ).checked;
+
+
+        const notes =
+          document.getElementById(
+            "issue-notes"
+          ).value;
+
+
+        const signatureCanvas =
+          document.getElementById(
+            "signature-pad"
+          );
+
+
+        const signature =
+          signatureCanvas.toDataURL(
+            "image/png"
+          );
+
+
+        this.disabled = true;
+
+        this.innerHTML =
+          "Submitting...";
+
+
+        try {
+
+          await apiRequest(
+            `/deliveries/${deliveryId}/confirm`,
+            {
+              method: "POST",
+
+              body: JSON.stringify({
+
+                items:
+                  receivedItems,
+
+                discrepancy:
+                  discrepancy,
+
+                notes:
+                  notes,
+
+                signature:
+                  signature
+
+              })
+
+            }
+          );
+
+
+          alert(
+            "Delivery confirmed successfully. Any discrepancies have been logged."
+          );
+
+
+          this.innerHTML =
+            "Confirmation Submitted ✓";
+
+
+          this.disabled = false;
+
+
+          await loadDelivery();
+
+
+        } catch (error) {
+
+          console.error(
+            "Delivery confirmation error:",
+            error
+          );
+
+          alert(
+            "Failed to submit delivery confirmation."
+          );
+
+          this.disabled = false;
+
+          this.innerHTML =
+            "Submit Confirmation & Log Issues";
+
+        }
+
+      }
+    );
+
+
+    /* ============================================================
+       PHOTO UPLOAD
+       ============================================================ */
+
+    const uploadPhotoBtn =
+      document.getElementById(
+        "btn-upload-photo"
+      );
+
+
+    uploadPhotoBtn.addEventListener(
+      "click",
+      function() {
+
+        const input =
+          document.createElement(
+            "input"
+          );
+
+        input.type =
+          "file";
+
+        input.accept =
+          "image/*";
+
+
+        input.onchange =
+          async function(event) {
+
+            const file =
+              event.target.files[0];
+
+
+            if (!file) return;
+
+
+            uploadPhotoBtn.innerHTML = `
+
+              <span class="text-[11px] font-bold text-blue-700">
+                Uploading...
+              </span>
+
+            `;
+
+
+            try {
+
+              const formData =
+                new FormData();
+
+
+              formData.append(
+                "photo",
+                file
+              );
+
+
+              /*
+                Do NOT use apiRequest() here because
+                FormData should not have Content-Type manually set.
+              */
+
+              const response =
+                await fetch(
+                  `${API_BASE_URL}/deliveries/photo`,
+                  {
+                    method: "POST",
+                    body: formData
+                  }
+                );
+
+
+              if (!response.ok) {
+
+                throw new Error(
+                  "Photo upload failed."
+                );
+
+              }
+
+
+              const data =
+                await response.json();
+
+
+              uploadedPhoto =
+                data;
+
+
+              uploadPhotoBtn.classList.remove(
+                "bg-[#d1d5db]"
+              );
+
+              uploadPhotoBtn.classList.remove(
+                "border-gray-400"
+              );
+
+
+              uploadPhotoBtn.classList.add(
+                "bg-blue-100"
+              );
+
+              uploadPhotoBtn.classList.add(
+                "border-blue-500"
+              );
+
+
+              uploadPhotoBtn.innerHTML = `
+
+                <span class="text-[11px] font-bold text-blue-700">
+                  ✓ Photo Uploaded<br>
+                  (${escapeHtml(file.name)})
+                </span>
+
+              `;
+
+
+            } catch (error) {
+
+              console.error(
+                "Photo upload error:",
+                error
+              );
+
+
+              uploadPhotoBtn.innerHTML = `
+
+                <span class="text-[11px] font-bold text-red-600">
+                  Upload Failed
+                </span>
+
+              `;
+
+            }
+
+          };
+
+
+        input.click();
+
+      }
+    );
+
+
+    /* ============================================================
+       SIGNATURE PAD
+       ============================================================ */
+
+    const canvas =
+      document.getElementById(
+        "signature-pad"
+      );
+
+
+    const ctx =
+      canvas.getContext("2d");
+
+
+    let isDrawing = false;
+
+
+    function resizeCanvas() {
+
+      const ratio =
+        Math.max(
+          window.devicePixelRatio || 1,
+          1
+        );
+
+
+      const rect =
+        canvas.getBoundingClientRect();
+
+
+      canvas.width =
+        rect.width * ratio;
+
+      canvas.height =
+        rect.height * ratio;
+
+
+      ctx.scale(
+        ratio,
+        ratio
+      );
+
+
+      ctx.lineWidth =
+        2;
+
+      ctx.strokeStyle =
+        "#000000";
+
+      ctx.lineCap =
+        "round";
+
+    }
+
+
+    resizeCanvas();
+
+
+    function getPointerPosition(event) {
+
+      const rect =
+        canvas.getBoundingClientRect();
+
+
+      if (
+        event.touches &&
+        event.touches.length
+      ) {
+
+        return {
+
+          x:
+            event.touches[0].clientX -
+            rect.left,
+
+          y:
+            event.touches[0].clientY -
+            rect.top
+
+        };
+
+      }
+
+
+      return {
+
+        x:
+          event.clientX -
+          rect.left,
+
+        y:
+          event.clientY -
+          rect.top
+
+      };
+
+    }
+
+
+    function startDrawing(event) {
+
+      isDrawing =
+        true;
+
+
+      const position =
+        getPointerPosition(
+          event
+        );
+
+
+      ctx.beginPath();
+
+      ctx.moveTo(
+        position.x,
+        position.y
+      );
+
+    }
+
+
+    function draw(event) {
+
+      if (!isDrawing)
+        return;
+
+
+      event.preventDefault();
+
+
+      const position =
+        getPointerPosition(
+          event
+        );
+
+
+      ctx.lineTo(
+        position.x,
+        position.y
+      );
+
+      ctx.stroke();
+
+    }
+
+
+    function stopDrawing() {
+
+      isDrawing =
+        false;
+
+      ctx.beginPath();
+
+    }
+
+
+    canvas.addEventListener(
+      "mousedown",
+      startDrawing
+    );
+
+    canvas.addEventListener(
+      "mousemove",
+      draw
+    );
+
+    canvas.addEventListener(
+      "mouseup",
+      stopDrawing
+    );
+
+    canvas.addEventListener(
+      "mouseout",
+      stopDrawing
+    );
+
+
+    canvas.addEventListener(
+      "touchstart",
+      startDrawing,
+      {
+        passive: false
+      }
+    );
+
+    canvas.addEventListener(
+      "touchmove",
+      draw,
+      {
+        passive: false
+      }
+    );
+
+    canvas.addEventListener(
+      "touchend",
+      stopDrawing
+    );
+
+
+    /* ============================================================
+       CLEAR SIGNATURE
+       ============================================================ */
+
+    document
+      .getElementById(
+        "clear-signature"
+      )
+      .addEventListener(
+        "click",
+        function() {
+
+          ctx.clearRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+
+        }
+      );
+
+
+    /* ============================================================
+       CLOSE INSPECTION
+       ============================================================ */
+
+    document
+      .getElementById(
+        "btn-close-modal"
+      )
+      .addEventListener(
+        "click",
+        function() {
+
+          document
+            .getElementById(
+              "inspect-modal"
+            )
+            .classList.add(
+              "hidden"
+            );
+
+        }
+      );
+
+
+    /* ============================================================
+       AMBIENT ITEMS
+       ============================================================ */
+
+    document
+      .getElementById(
+        "btn-ambient"
+      )
+      .addEventListener(
+        "click",
+        function() {
+
+          loadProducts(
+            "ambient"
+          );
+
+        }
+      );
+
+
+    /* ============================================================
+       CHILLED ITEMS
+       ============================================================ */
+
+    document
+      .getElementById(
+        "btn-chilled"
+      )
+      .addEventListener(
+        "click",
+        function() {
+
+          loadProducts(
+            "chilled"
+          );
+
+        }
+      );
+
+
+    /* ============================================================
+       ESCAPE HTML
+       ============================================================ */
+
+    function escapeHtml(value) {
+
+      if (value === null ||
+          value === undefined) {
+
+        return "";
+
+      }
+
+
+      return String(value)
+        .replace(
+          /&/g,
+          "&amp;"
+        )
+        .replace(
+          /</g,
+          "&lt;"
+        )
+        .replace(
+          />/g,
+          "&gt;"
+        )
+        .replace(
+          /"/g,
+          "&quot;"
+        )
+        .replace(
+          /'/g,
+          "&#039;"
+        );
+
+    }
+
+
+    /* ============================================================
+       LOAD ALL DATA
+       ============================================================ */
+
+    async function initializeApplication() {
+
+      try {
+
+        await Promise.all([
+          loadStoreData(),
+          loadProducts("ambient"),
+          loadCurrentOrder(),
+          loadDelivery()
+        ]);
+
+      } catch (error) {
+
+        console.error(
+          "Application initialization error:",
+          error
+        );
+
+      }
+
+    }
+
+
+    /* ============================================================
+       START APPLICATION
+       ============================================================ */
+
+    document.addEventListener(
+      "DOMContentLoaded",
+      initializeApplication
+    );
+
+
+  </script>
+
+</body>
+</html>
