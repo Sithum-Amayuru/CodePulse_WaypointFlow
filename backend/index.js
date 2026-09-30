@@ -7,13 +7,13 @@ const Database = require('better-sqlite3');
 const { runAllocation } = require('./allocation');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
 // ---- Database Setup ----
-const db = new Database(path.join(__dirname, 'waypoint.db'));
+const db = new Database(process.env.DB_PATH || path.join(__dirname, 'waypoint.db'));
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS stops (
@@ -69,10 +69,19 @@ function readCSV(filename) {
   return parse(fileContent, { columns: true, skip_empty_lines: true, bom: true });
 }
 
+// ---- Serve the built frontend (only when it exists, e.g. inside Docker) ----
+const publicDir = path.join(__dirname, 'public');
+const hasFrontend = fs.existsSync(path.join(publicDir, 'index.html'));
+if (hasFrontend) {
+  app.use(express.static(publicDir));
+}
+
 // ---- Basic Routes ----
-app.get('/', (req, res) => {
-  res.send('Hello! Waypoint backend server is running.');
-});
+if (!hasFrontend) {
+  app.get('/', (req, res) => {
+    res.send('Hello! Waypoint backend server is running.');
+  });
+}
 
 app.get('/api/outlets', (req, res) => {
   res.json(readCSV('outlets.csv'));
@@ -130,6 +139,16 @@ app.get('/api/allocate/trips', (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ---- Frontend fallback: any other page (e.g. /dispatcher) opens the app ----
+if (hasFrontend) {
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api')) {
+      return res.sendFile(path.join(publicDir, 'index.html'));
+    }
+    next();
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
