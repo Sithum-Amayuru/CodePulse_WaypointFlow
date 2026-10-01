@@ -61,6 +61,13 @@ db.exec(`
   )
 `);
 
+// Older databases do not have the items column yet: add it (ignored if it already exists)
+try {
+  db.exec('ALTER TABLE orders ADD COLUMN items TEXT');
+} catch (e) {
+  // column already exists
+}
+
 const stopCount = db.prepare('SELECT COUNT(*) as count FROM stops').get();
 if (stopCount.count === 0) {
   db.prepare(
@@ -159,7 +166,7 @@ app.get('/api/vehicles', (req, res) => {
   res.json(readCSV('vehicles.csv'));
 });
 
-// ---- Demo Trip Routes (used by the current Driver screen) ----
+// ---- Demo Trip Routes (used by the old Dispatcher "Live Trip" panel) ----
 app.get('/api/trip', (req, res) => {
   res.json(getTrip());
 });
@@ -218,6 +225,15 @@ app.get('/api/allocate/trips', (req, res) => {
 //  -> Loader loads -> Driver delivers -> Store Manager receives
 // ============================================================
 
+function safeParse(text) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    return null;
+  }
+}
+
 function orderToJson(r) {
   return {
     orderId: r.order_ref,
@@ -234,7 +250,8 @@ function orderToJson(r) {
     tripId: r.trip_id,
     reason: r.reason,
     source: r.source,
-    receivedCondition: r.received_condition,
+    items: safeParse(r.items),
+    receipt: safeParse(r.received_condition),
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -319,32 +336,62 @@ app.get('/api/orders', (req, res) => {
   res.json(listOrders('ORDER BY rowid'));
 });
 
-// Outlets a Store Manager can order for
+// Outlets a Store Manager can order for (one row per outlet, same row the order template uses)
 app.get('/api/outlet-options', (req, res) => {
   const rows = db
     .prepare(
-      'SELECT outlet_id, brand, district FROM orders GROUP BY outlet_id, brand, district ORDER BY outlet_id'
+      `SELECT outlet_id, brand, district FROM orders
+       WHERE rowid IN (SELECT MIN(rowid) FROM orders GROUP BY outlet_id)
+       ORDER BY outlet_id`
     )
     .all();
   res.json(rows.map((r) => ({ outletId: r.outlet_id, brand: r.brand, district: r.district })));
 });
 
-// Store Manager: submit a new daily order
+// Store Manager: submit a new daily order (from the cart items, or a plain weight and volume)
 app.post('/api/orders', (req, res) => {
   try {
-    const { outletId, temp, weightKg, volumeM3 } = req.body || {};
-    const weight = Number(weightKg);
-    const volume = Number(volumeM3);
+    const { outletId, temp, items } = req.body || {};
+    let weight = Number(req.body && req.body.weightKg);
+    let volume = Number(req.body && req.body.volumeM3);
+    let itemsJson = null;
+
+    if (Array.isArray(items) && items.length > 0) {
+      let w = 0;
+      let v = 0;
+      const clean = [];
+      for (const it of items.slice(0, 50)) {
+        const qty = Math.floor(Number(it.qty));
+        const uw = Number(it.unitWeightKg);
+        const uv = Number(it.unitVolumeM3);
+        if (!it.name || !(qty >= 1 && qty <= 1000) || !(uw > 0) || !(uv > 0)) {
+          return res
+            .status(400)
+            .json({ error: 'Each item needs a name, a quantity (1-1000) and unit sizes.' });
+        }
+        w += qty * uw;
+        v += qty * uv;
+        clean.push({
+          name: String(it.name).slice(0, 80),
+          qty,
+          unitWeightKg: uw,
+          unitVolumeM3: uv,
+        });
+      }
+      weight = Math.round(w * 100) / 100;
+      volume = Math.round(v * 1000) / 1000;
+      itemsJson = JSON.stringify(clean);
+    }
 
     if (!outletId) return res.status(400).json({ error: 'Please choose an outlet.' });
     if (!['ambient', 'chilled'].includes(temp)) {
       return res.status(400).json({ error: 'Temperature must be ambient or chilled.' });
     }
     if (!(weight > 0 && weight <= 50000)) {
-      return res.status(400).json({ error: 'Weight (kg) must be a positive number.' });
+      return res.status(400).json({ error: 'Total weight must be between 0 and 50,000 kg.' });
     }
     if (!(volume > 0 && volume <= 500)) {
-      return res.status(400).json({ error: 'Volume (m3) must be a positive number.' });
+      return res.status(400).json({ error: 'Total volume must be between 0 and 500 m3.' });
     }
 
     // Outlet details (district, depot, dock, parking) come from the known outlet rows
@@ -393,6 +440,9 @@ app.post('/api/orders', (req, res) => {
       now,
       now
     );
+    if (itemsJson) {
+      db.prepare('UPDATE orders SET items = ? WHERE order_ref = ?').run(itemsJson, ref);
+    }
 
     res.status(201).json(orderToJson(getOrder(ref)));
   } catch (err) {
@@ -472,10 +522,20 @@ app.post('/api/orders/:ref/deliver', (req, res) => {
   moveOrder(res, req.params.ref, ['LOADED'], 'DELIVERED');
 });
 
-// Store Manager: confirm receipt
+// Store Manager: confirm receipt (received quantities and condition are saved as a receipt)
 app.post('/api/orders/:ref/receive', (req, res) => {
-  const condition = (req.body && req.body.condition) || null;
-  moveOrder(res, req.params.ref, ['DELIVERED'], 'RECEIVED', { received_condition: condition });
+  const body = req.body || {};
+  const condition = body.condition === 'damaged' ? 'damaged' : 'good';
+  const items = Array.isArray(body.items)
+    ? body.items.slice(0, 50).map((i) => ({
+        name: String(i.name || '').slice(0, 80),
+        ordered: Number(i.ordered) || 0,
+        received: Number(i.received) || 0,
+        condition: i.condition === 'damaged' ? 'damaged' : 'good',
+      }))
+    : [];
+  const receipt = JSON.stringify({ condition, items, at: new Date().toISOString() });
+  moveOrder(res, req.params.ref, ['DELIVERED'], 'RECEIVED', { received_condition: receipt });
 });
 
 // ---- Demo reset: everything goes back to the starting state ----
