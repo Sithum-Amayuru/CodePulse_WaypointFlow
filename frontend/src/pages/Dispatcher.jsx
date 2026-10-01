@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 const API = 'http://localhost:3000';
 
 const ASSIGNED_STATES = ['ASSIGNED', 'LOADED', 'DELIVERED', 'RECEIVED'];
+const IN_USE_STATES = ['ALLOCATED', 'ASSIGNED', 'LOADED', 'DELIVERED', 'RECEIVED'];
 
 const TABS = [
   { key: 'ACTION', label: 'Needs Action', states: ['PENDING', 'ALLOCATED', 'OVER_CAPACITY'] },
@@ -36,20 +37,17 @@ const STATUS_LABEL = {
 
 function Dispatcher() {
   const [orders, setOrders] = useState([]);
-  const [trip, setTrip] = useState(null);
+  const [vehicleTotal, setVehicleTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('ACTION');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
 
   const loadData = () => {
-    return Promise.all([
-      fetch(`${API}/api/orders`).then((res) => res.json()),
-      fetch(`${API}/api/trip`).then((res) => res.json()),
-    ])
-      .then(([orderData, tripData]) => {
+    return fetch(`${API}/api/orders`)
+      .then((res) => res.json())
+      .then((orderData) => {
         setOrders(Array.isArray(orderData) ? orderData : []);
-        setTrip(tripData);
         setLoading(false);
       })
       .catch((err) => {
@@ -59,6 +57,11 @@ function Dispatcher() {
   };
 
   useEffect(() => {
+    fetch(`${API}/api/vehicles`)
+      .then((res) => res.json())
+      .then((data) => setVehicleTotal(Array.isArray(data) ? data.length : 0))
+      .catch(() => {});
+
     loadData();
     const timer = setInterval(loadData, 5000);
     return () => clearInterval(timer);
@@ -86,6 +89,33 @@ function Dispatcher() {
   const attentionCount = count(['DEFERRED', 'OVER_CAPACITY']);
   const pendingCount = count(['PENDING']);
 
+  // Vehicles that currently have work
+  const vehiclesInUse = new Set(
+    orders.filter((o) => IN_USE_STATES.includes(o.status) && o.vehicleId).map((o) => o.vehicleId)
+  ).size;
+
+  // Live trips: assigned orders grouped by truck + trip
+  const tripMap = {};
+  orders
+    .filter((o) => ASSIGNED_STATES.includes(o.status) && o.vehicleId)
+    .forEach((o) => {
+      const key = `${o.vehicleId}|${o.tripId}`;
+      if (!tripMap[key]) {
+        tripMap[key] = { key, vehicleId: o.vehicleId, tripId: o.tripId, district: o.district, orders: [] };
+      }
+      tripMap[key].orders.push(o);
+    });
+  const liveTrips = Object.values(tripMap).map((t) => {
+    const total = t.orders.length;
+    const loaded = t.orders.filter((o) => ['LOADED', 'DELIVERED', 'RECEIVED'].includes(o.status)).length;
+    const delivered = t.orders.filter((o) => ['DELIVERED', 'RECEIVED'].includes(o.status)).length;
+    let state = 'Waiting to load';
+    if (delivered === total) state = 'Completed';
+    else if (loaded > 0) state = 'In progress';
+    return { ...t, total, loaded, delivered, state };
+  });
+  const tripsActive = liveTrips.filter((t) => t.state !== 'Completed').length;
+
   const activeTab = TABS.find((t) => t.key === tab);
   const visible = activeTab.states ? orders.filter((o) => activeTab.states.includes(o.status)) : orders;
 
@@ -93,12 +123,11 @@ function Dispatcher() {
     return <div className="p-10">Loading dashboard...</div>;
   }
 
-  const Btn = ({ onClick, color, children, busyKey }) => (
+  const Btn = ({ onClick, color, children }) => (
     <button
       onClick={onClick}
       disabled={busy !== ''}
       className={`${color} text-white text-[10px] font-semibold px-2.5 py-1 rounded disabled:opacity-50`}
-      data-key={busyKey}
     >
       {children}
     </button>
@@ -119,7 +148,9 @@ function Dispatcher() {
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded border border-slate-300 shadow-sm py-3.5 px-4 text-center">
             <div className="text-[17px] font-semibold text-[#00c853]">Fleet Active</div>
-            <div className="text-[13px] font-medium text-[#00c853] mt-0.5">48 / 60 Vehicles</div>
+            <div className="text-[13px] font-medium text-[#00c853] mt-0.5">
+              {vehiclesInUse} / {vehicleTotal} Vehicles in use
+            </div>
           </div>
           <div className="bg-white rounded border border-slate-300 shadow-sm py-3.5 px-4 text-center">
             <div className="text-[17px] font-semibold text-[#2563eb]">Orders Assigned</div>
@@ -135,46 +166,53 @@ function Dispatcher() {
           </div>
         </section>
 
-        {/* Live Trip Status */}
-        {trip && (
-          <section className="bg-white rounded border border-slate-300 shadow-sm p-5 mb-6">
-            <div className="flex justify-between items-center mb-3">
-              <p className="font-semibold text-sm">
-                Live Trip: Route #{trip.tripId} ({trip.vehicleId} - {trip.driver})
-              </p>
-              <p className="text-xs text-gray-500">
-                Loaded: {trip.stops.filter((s) => s.loaded).length}/{trip.stops.length} · Delivered:{' '}
-                {trip.stops.filter((s) => s.delivered).length}/{trip.stops.length}
-              </p>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {trip.stops.map((s) => (
+        {/* Live trips */}
+        <section className="bg-white rounded border border-slate-300 shadow-sm p-5 mb-6">
+          <div className="flex justify-between items-center mb-3">
+            <p className="font-semibold text-sm">Live Trips</p>
+            <p className="text-xs text-gray-500">
+              {tripsActive} active · {liveTrips.length} total
+            </p>
+          </div>
+          {liveTrips.length === 0 ? (
+            <p className="text-xs text-gray-500">
+              No trips yet. Trips appear here after you assign orders to a truck.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-h-52 overflow-y-auto">
+              {liveTrips.map((t) => (
                 <div
-                  key={s.step}
+                  key={t.key}
                   className={`rounded p-3 border text-xs ${
-                    s.delivered
+                    t.state === 'Completed'
                       ? 'bg-green-50 border-green-300'
-                      : s.loaded
+                      : t.state === 'In progress'
                       ? 'bg-blue-50 border-blue-300'
                       : 'bg-gray-50 border-gray-200'
                   }`}
                 >
-                  <p className="font-semibold text-gray-500">STOP {s.step}</p>
-                  <p className="font-semibold">{s.name}</p>
+                  <p className="font-semibold text-gray-500">
+                    {t.vehicleId} · TRIP {t.tripId}
+                  </p>
+                  <p className="font-semibold">{t.district} route</p>
+                  <p className="mt-1 text-gray-600">
+                    {t.total} {t.total === 1 ? 'stop' : 'stops'} · Loaded {t.loaded}/{t.total} ·
+                    Delivered {t.delivered}/{t.total}
+                  </p>
                   <p className="mt-1">
-                    {s.delivered ? (
-                      <span className="text-green-600">✓ Delivered</span>
-                    ) : s.loaded ? (
-                      <span className="text-blue-600">● In transit</span>
+                    {t.state === 'Completed' ? (
+                      <span className="text-green-600">✓ Completed</span>
+                    ) : t.state === 'In progress' ? (
+                      <span className="text-blue-600">● In progress</span>
                     ) : (
-                      <span className="text-gray-500">○ Not loaded</span>
+                      <span className="text-gray-500">○ Waiting to load</span>
                     )}
                   </p>
                 </div>
               ))}
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
         {/* Orders table */}
         <section className="bg-white rounded-md border border-slate-300 shadow-sm overflow-hidden">
@@ -182,19 +220,14 @@ function Dispatcher() {
             <p className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
               Daily Orders
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-slate-500">● Live · updates automatically</span>
               <button
                 onClick={autoAllocateAll}
                 disabled={busy !== '' || pendingCount === 0}
                 className="text-[10px] bg-blue-700 text-white px-3 py-1 rounded font-semibold disabled:opacity-50"
               >
                 {busy === 'ALL' ? 'Allocating...' : `Auto-Allocate All Pending (${pendingCount})`}
-              </button>
-              <button
-                onClick={loadData}
-                className="text-[10px] bg-slate-700 text-white px-3 py-1 rounded font-semibold"
-              >
-                Refresh
               </button>
             </div>
           </div>
@@ -272,6 +305,11 @@ function Dispatcher() {
                       {o.reason && (
                         <div className="text-[10px] text-red-600 italic mt-1 max-w-[260px]">
                           {o.reason}
+                        </div>
+                      )}
+                      {o.status === 'RECEIVED' && o.receipt && o.receipt.condition === 'damaged' && (
+                        <div className="text-[10px] text-amber-700 mt-1">
+                          Receipt: discrepancies logged
                         </div>
                       )}
                     </td>
