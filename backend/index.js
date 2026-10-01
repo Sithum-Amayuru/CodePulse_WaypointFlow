@@ -34,6 +34,33 @@ db.exec(`
   )
 `);
 
+// Orders: column names match the competition CSV so the allocation engine can read them directly
+db.exec(`
+  CREATE TABLE IF NOT EXISTS orders (
+    order_ref TEXT PRIMARY KEY,
+    outlet_id TEXT,
+    brand TEXT,
+    district TEXT,
+    depot TEXT,
+    dock_type TEXT,
+    parking_constraint TEXT,
+    window_close_time TEXT,
+    temp_requirement TEXT,
+    order_weight_kg REAL,
+    order_volume_m3 REAL,
+    deferred_yesterday REAL DEFAULT 0,
+    days_since_last_served REAL DEFAULT 0,
+    source TEXT,
+    status TEXT,
+    vehicle_id TEXT,
+    trip_id INTEGER,
+    reason TEXT,
+    received_condition TEXT,
+    created_at TEXT,
+    updated_at TEXT
+  )
+`);
+
 const stopCount = db.prepare('SELECT COUNT(*) as count FROM stops').get();
 if (stopCount.count === 0) {
   db.prepare(
@@ -69,6 +96,47 @@ function readCSV(filename) {
   return parse(fileContent, { columns: true, skip_empty_lines: true, bom: true });
 }
 
+// ---- Seed the orders table from the peak-day scenario CSV (only the first time) ----
+try {
+  const orderCount = db.prepare('SELECT COUNT(*) as count FROM orders').get();
+  if (orderCount.count === 0) {
+    const insertOrder = db.prepare(`
+      INSERT INTO orders (
+        order_ref, outlet_id, brand, district, depot, dock_type, parking_constraint,
+        window_close_time, temp_requirement, order_weight_kg, order_volume_m3,
+        deferred_yesterday, days_since_last_served, source, status, created_at, updated_at
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'csv','PENDING',?,?)
+    `);
+    const now = new Date().toISOString();
+    const seedOrders = db.transaction((rows) => {
+      for (const r of rows) {
+        insertOrder.run(
+          r.order_ref,
+          r.outlet_id,
+          r.brand,
+          r.district,
+          r.depot,
+          r.dock_type,
+          r.parking_constraint,
+          r.window_close_time,
+          r.temp_requirement,
+          Number(r.order_weight_kg),
+          Number(r.order_volume_m3),
+          Number(r.deferred_yesterday) || 0,
+          Number(r.days_since_last_served) || 0,
+          now,
+          now
+        );
+      }
+    });
+    const rows = readCSV('task2b_peak_day_scenarios.csv');
+    seedOrders(rows);
+    console.log(`Orders table seeded with ${rows.length} orders (status PENDING).`);
+  }
+} catch (err) {
+  console.error('Could not seed orders:', err.message);
+}
+
 // ---- Serve the built frontend (only when it exists, e.g. inside Docker) ----
 const publicDir = path.join(__dirname, 'public');
 const hasFrontend = fs.existsSync(path.join(publicDir, 'index.html'));
@@ -91,7 +159,7 @@ app.get('/api/vehicles', (req, res) => {
   res.json(readCSV('vehicles.csv'));
 });
 
-// ---- Trip Routes ----
+// ---- Demo Trip Routes (used by the current Driver screen) ----
 app.get('/api/trip', (req, res) => {
   res.json(getTrip());
 });
@@ -108,18 +176,23 @@ app.post('/api/trip/deliver/:step', (req, res) => {
   res.json(getTrip());
 });
 
-// ---- Allocation Engine ----
-function computeAllocation() {
-  return runAllocation({
-    orders: readCSV('task2b_peak_day_scenarios.csv'),
+// ---- Allocation Engine (whole-CSV batch view, kept as it was) ----
+function engineInputs() {
+  return {
     fleet: readCSV('task2b_peak_day_fleet.csv'),
     vehicles: readCSV('vehicles.csv'),
     travel: readCSV('district_travel.csv'),
     allowance: readCSV('service_allowance.csv'),
+  };
+}
+
+function computeAllocation() {
+  return runAllocation({
+    orders: readCSV('task2b_peak_day_scenarios.csv'),
+    ...engineInputs(),
   });
 }
 
-// One row per order: served (vehicle + trip) or deferred (with reason)
 app.get('/api/allocate', (req, res) => {
   try {
     res.json(computeAllocation().allocations);
@@ -129,13 +202,299 @@ app.get('/api/allocate', (req, res) => {
   }
 });
 
-// Summary numbers and the list of trips built by the engine
 app.get('/api/allocate/trips', (req, res) => {
   try {
     const { summary, trips } = computeAllocation();
     res.json({ summary, trips });
   } catch (err) {
     console.error('Allocation error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+//  ORDER WORKFLOW
+//  Store Manager submits -> Dispatcher (Auto-Allocate / Assign / Defer)
+//  -> Loader loads -> Driver delivers -> Store Manager receives
+// ============================================================
+
+function orderToJson(r) {
+  return {
+    orderId: r.order_ref,
+    outletId: r.outlet_id,
+    destination: `${r.outlet_id} (${r.district})`,
+    brand: r.brand,
+    district: r.district,
+    depot: r.depot,
+    temp: r.temp_requirement,
+    weightKg: r.order_weight_kg,
+    volumeM3: r.order_volume_m3,
+    status: r.status,
+    vehicleId: r.vehicle_id,
+    tripId: r.trip_id,
+    reason: r.reason,
+    source: r.source,
+    receivedCondition: r.received_condition,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+function getOrder(ref) {
+  return db.prepare('SELECT * FROM orders WHERE order_ref = ?').get(ref);
+}
+
+function listOrders(whereSql = '', params = []) {
+  return db
+    .prepare(`SELECT * FROM orders ${whereSql}`)
+    .all(...params)
+    .map(orderToJson);
+}
+
+// Move one order to a new status, but only if it is in an allowed current status
+function moveOrder(res, ref, allowedFrom, toStatus, extra = {}) {
+  const row = getOrder(ref);
+  if (!row) return res.status(404).json({ error: 'Order not found' });
+  if (!allowedFrom.includes(row.status)) {
+    return res
+      .status(409)
+      .json({ error: `Order is ${row.status}. Expected: ${allowedFrom.join(' or ')}` });
+  }
+  const fields = { status: toStatus, updated_at: new Date().toISOString(), ...extra };
+  const sets = Object.keys(fields)
+    .map((k) => `${k} = @${k}`)
+    .join(', ');
+  db.prepare(`UPDATE orders SET ${sets} WHERE order_ref = @order_ref`).run({
+    ...fields,
+    order_ref: ref,
+  });
+  return res.json(orderToJson(getOrder(ref)));
+}
+
+// Run the real allocation engine over every order that is not deferred,
+// then save the result for the given orders only.
+function runAutoAllocate(refs) {
+  const rows = db.prepare("SELECT * FROM orders WHERE status != 'DEFERRED' ORDER BY rowid").all();
+  const { allocations } = runAllocation({ orders: rows, ...engineInputs() });
+  const byRef = new Map(allocations.map((a) => [a.orderId, a]));
+  const now = new Date().toISOString();
+
+  const update = db.prepare(`
+    UPDATE orders
+    SET status = @status, vehicle_id = @vehicle_id, trip_id = @trip_id,
+        reason = @reason, updated_at = @updated_at
+    WHERE order_ref = @order_ref
+  `);
+
+  const apply = db.transaction(() => {
+    for (const ref of refs) {
+      const a = byRef.get(ref);
+      if (!a) continue;
+      if (a.decision === 'served') {
+        update.run({
+          status: 'ALLOCATED',
+          vehicle_id: a.vehicleId,
+          trip_id: a.tripId,
+          reason: null,
+          updated_at: now,
+          order_ref: ref,
+        });
+      } else {
+        update.run({
+          status: 'OVER_CAPACITY',
+          vehicle_id: null,
+          trip_id: null,
+          reason: a.reason,
+          updated_at: now,
+          order_ref: ref,
+        });
+      }
+    }
+  });
+  apply();
+}
+
+// All orders (Dispatcher and Store Manager tables)
+app.get('/api/orders', (req, res) => {
+  res.json(listOrders('ORDER BY rowid'));
+});
+
+// Outlets a Store Manager can order for
+app.get('/api/outlet-options', (req, res) => {
+  const rows = db
+    .prepare(
+      'SELECT outlet_id, brand, district FROM orders GROUP BY outlet_id, brand, district ORDER BY outlet_id'
+    )
+    .all();
+  res.json(rows.map((r) => ({ outletId: r.outlet_id, brand: r.brand, district: r.district })));
+});
+
+// Store Manager: submit a new daily order
+app.post('/api/orders', (req, res) => {
+  try {
+    const { outletId, temp, weightKg, volumeM3 } = req.body || {};
+    const weight = Number(weightKg);
+    const volume = Number(volumeM3);
+
+    if (!outletId) return res.status(400).json({ error: 'Please choose an outlet.' });
+    if (!['ambient', 'chilled'].includes(temp)) {
+      return res.status(400).json({ error: 'Temperature must be ambient or chilled.' });
+    }
+    if (!(weight > 0 && weight <= 50000)) {
+      return res.status(400).json({ error: 'Weight (kg) must be a positive number.' });
+    }
+    if (!(volume > 0 && volume <= 500)) {
+      return res.status(400).json({ error: 'Volume (m3) must be a positive number.' });
+    }
+
+    // Outlet details (district, depot, dock, parking) come from the known outlet rows
+    const template = db
+      .prepare('SELECT * FROM orders WHERE outlet_id = ? ORDER BY rowid LIMIT 1')
+      .get(outletId);
+    if (!template) return res.status(400).json({ error: 'Unknown outlet.' });
+
+    // Make sure the allocation engine will have the data it needs for this order
+    const travel = readCSV('district_travel.csv');
+    const allowance = readCSV('service_allowance.csv');
+    if (!travel.some((r) => r.district === template.district)) {
+      return res.status(400).json({ error: `No travel data for district ${template.district}.` });
+    }
+    if (!allowance.some((r) => r.brand === template.brand && r.dock_type === template.dock_type)) {
+      return res.status(400).json({ error: 'No service allowance data for this outlet.' });
+    }
+
+    // Create a unique order id like ORD-9001
+    let n = db.prepare("SELECT COUNT(*) as c FROM orders WHERE source = 'store'").get().c + 1;
+    let ref = `ORD-${9000 + n}`;
+    while (getOrder(ref)) {
+      n += 1;
+      ref = `ORD-${9000 + n}`;
+    }
+
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO orders (
+        order_ref, outlet_id, brand, district, depot, dock_type, parking_constraint,
+        window_close_time, temp_requirement, order_weight_kg, order_volume_m3,
+        deferred_yesterday, days_since_last_served, source, status, created_at, updated_at
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,0,0,'store','PENDING',?,?)
+    `).run(
+      ref,
+      template.outlet_id,
+      template.brand,
+      template.district,
+      template.depot,
+      template.dock_type,
+      template.parking_constraint,
+      template.window_close_time,
+      temp,
+      weight,
+      volume,
+      now,
+      now
+    );
+
+    res.status(201).json(orderToJson(getOrder(ref)));
+  } catch (err) {
+    console.error('Create order error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Dispatcher: Auto-Allocate every pending order
+app.post('/api/orders/auto-allocate-all', (req, res) => {
+  try {
+    const refs = db
+      .prepare("SELECT order_ref FROM orders WHERE status = 'PENDING'")
+      .all()
+      .map((r) => r.order_ref);
+    runAutoAllocate(refs);
+    res.json(listOrders('ORDER BY rowid'));
+  } catch (err) {
+    console.error('Auto-allocate error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Dispatcher: Auto-Allocate one order
+app.post('/api/orders/:ref/auto-allocate', (req, res) => {
+  try {
+    const row = getOrder(req.params.ref);
+    if (!row) return res.status(404).json({ error: 'Order not found' });
+    if (!['PENDING', 'OVER_CAPACITY', 'ALLOCATED'].includes(row.status)) {
+      return res.status(409).json({ error: `Order is already ${row.status}.` });
+    }
+    runAutoAllocate([row.order_ref]);
+    res.json(orderToJson(getOrder(row.order_ref)));
+  } catch (err) {
+    console.error('Auto-allocate error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Dispatcher: Assign (confirm the allocation, the Loader now gets this job)
+app.post('/api/orders/:ref/assign', (req, res) => {
+  moveOrder(res, req.params.ref, ['ALLOCATED'], 'ASSIGNED');
+});
+
+// Dispatcher: Defer Order
+app.post('/api/orders/:ref/defer', (req, res) => {
+  const row = getOrder(req.params.ref);
+  const reason = (row && row.reason) || 'Deferred by dispatcher';
+  moveOrder(res, req.params.ref, ['PENDING', 'ALLOCATED', 'OVER_CAPACITY'], 'DEFERRED', {
+    vehicle_id: null,
+    trip_id: null,
+    reason,
+  });
+});
+
+// Loader: jobs appear only after the Dispatcher has assigned them
+app.get('/api/loader/jobs', (req, res) => {
+  res.json(
+    listOrders("WHERE status IN ('ASSIGNED','LOADED') ORDER BY vehicle_id, trip_id, rowid")
+  );
+});
+
+app.post('/api/orders/:ref/load', (req, res) => {
+  moveOrder(res, req.params.ref, ['ASSIGNED'], 'LOADED');
+});
+
+// Driver: loaded orders to deliver
+app.get('/api/driver/jobs', (req, res) => {
+  res.json(
+    listOrders(
+      "WHERE status IN ('LOADED','DELIVERED','RECEIVED') ORDER BY vehicle_id, trip_id, rowid"
+    )
+  );
+});
+
+app.post('/api/orders/:ref/deliver', (req, res) => {
+  moveOrder(res, req.params.ref, ['LOADED'], 'DELIVERED');
+});
+
+// Store Manager: confirm receipt
+app.post('/api/orders/:ref/receive', (req, res) => {
+  const condition = (req.body && req.body.condition) || null;
+  moveOrder(res, req.params.ref, ['DELIVERED'], 'RECEIVED', { received_condition: condition });
+});
+
+// ---- Demo reset: everything goes back to the starting state ----
+app.post('/api/demo/reset', (req, res) => {
+  try {
+    const now = new Date().toISOString();
+    const reset = db.transaction(() => {
+      db.prepare("DELETE FROM orders WHERE source = 'store'").run();
+      db.prepare(`
+        UPDATE orders
+        SET status = 'PENDING', vehicle_id = NULL, trip_id = NULL, reason = NULL,
+            received_condition = NULL, updated_at = ?
+      `).run(now);
+      db.prepare('UPDATE stops SET loaded = 0, delivered = 0').run();
+    });
+    reset();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Reset error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

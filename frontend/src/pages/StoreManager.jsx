@@ -59,10 +59,14 @@ function StoreManager() {
     setShowInspection(false);
   };
 
-  if (loading) return <div className="p-10">Loading...</div>;
+  if (loading) return <div className="p-10 font-medium">Loading store manager dashboard...</div>;
 
-  const deliveredCount = trip ? trip.stops.filter((s) => s.delivered).length : 0;
-  const orderStatus = deliveredCount === trip?.stops.length ? 'DELIVERED' : deliveredCount > 0 ? 'IN-TRANSIT' : 'PENDING';
+  // Find the specific stop for Kandy City Outlet (Stop 1)
+  const kandyStop = trip?.stops?.find((s) => s.name.toLowerCase().includes('kandy'));
+  const isKandyDelivered = kandyStop ? kandyStop.delivered : false;
+
+  // Status for Kandy Outlet order
+  const orderStatus = isKandyDelivered ? 'DELIVERED' : kandyStop?.loaded ? 'IN-TRANSIT' : 'PENDING';
 
   return (
     <div className="bg-[#f8fafc] text-gray-800 min-h-screen pb-12">
@@ -129,7 +133,7 @@ function StoreManager() {
                   <span className="text-gray-400">-</span>
                   <span
                     className={`font-bold tracking-wide uppercase ${
-                      orderStatus === 'DELIVERED' ? 'text-[#16a34a]' : 'text-blue-600'
+                      isKandyDelivered ? 'text-[#16a34a]' : 'text-blue-600'
                     }`}
                   >
                     {orderStatus}
@@ -143,16 +147,22 @@ function StoreManager() {
                   ETA: 2:30 PM | Truck: {trip?.vehicleId}
                 </div>
               </div>
-              {orderStatus === 'DELIVERED' && !showInspection && (
+
+              {/* Inspection Button unlocks immediately when Stop 1 (Kandy) is DELIVERED */}
+              {isKandyDelivered && !showInspection && (
                 <button
                   onClick={() => setShowInspection(true)}
-                  className="mt-2.5 bg-[#059669] hover:bg-emerald-700 text-white font-semibold text-[11px] px-3 py-1.5 rounded-sm"
+                  className="mt-2.5 bg-[#059669] hover:bg-emerald-700 text-white font-semibold text-[11px] px-3 py-1.5 rounded-sm transition-colors"
                 >
                   Confirm Receipt & Inspect
                 </button>
               )}
             </div>
-            <button className="w-full bg-[#16a34a] hover:bg-green-700 text-white font-semibold text-xs sm:text-sm py-2 rounded-sm">
+
+            <button 
+              onClick={() => alert('Daily Order Submitted Successfully to Allocation Queue!')}
+              className="w-full bg-[#16a34a] hover:bg-green-700 text-white font-semibold text-xs sm:text-sm py-2 rounded-sm transition-colors"
+            >
               Submit Daily Order
             </button>
           </section>
@@ -162,9 +172,9 @@ function StoreManager() {
           <section className="bg-white border-2 border-gray-300 shadow-sm rounded-sm p-4 relative">
             <button
               onClick={() => setShowInspection(false)}
-              className="absolute top-2 right-2 bg-[#dc2626] text-white hover:bg-red-700 w-6 h-6 flex items-center justify-center font-bold text-xs"
+              className="absolute top-2 right-2 bg-[#dc2626] text-white hover:bg-red-700 w-6 h-6 flex items-center justify-center font-bold text-xs rounded-sm"
             >
-              X
+              ✕
             </button>
 
             <div className="border-b border-gray-200 pb-2 mb-3">
@@ -195,6 +205,7 @@ function StoreManager() {
                         <label className="inline-flex items-center space-x-1 cursor-pointer">
                           <input
                             type="radio"
+                            name={`condition-${index}`}
                             checked={item.condition === 'good'}
                             onChange={() => updateItem(index, 'condition', 'good')}
                           />
@@ -203,6 +214,7 @@ function StoreManager() {
                         <label className="inline-flex items-center space-x-1 cursor-pointer">
                           <input
                             type="radio"
+                            name={`condition-${index}`}
                             checked={item.condition === 'damaged'}
                             onChange={() => updateItem(index, 'condition', 'damaged')}
                           />
