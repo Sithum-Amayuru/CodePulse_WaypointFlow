@@ -1,4 +1,4 @@
-# Waypoint Delivery Planner
+# Waypoint Logistics
 
 Tech-Triathlon 2026, Hackathon phase submission.
 
